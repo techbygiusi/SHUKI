@@ -68,7 +68,7 @@ app.get('/', (_req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SHUKI — Server Status</title>
+<title>SHUKI - Server Status</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -178,14 +178,14 @@ app.get('/', (_req, res) => {
   <div class="status" id="status">⏳ Checking server health…</div>
   <h2>Connect with the Shuki App</h2>
   <ol class="steps">
-    <li>Open the Shuki Electron app</li>
+    <li>Open Shuki</li>
     <li>Enter this server URL:
       <div class="url-block">
         <span id="server-url"></span>
         <button onclick="navigator.clipboard.writeText(document.getElementById('server-url').textContent)">Copy</button>
       </div>
     </li>
-    <li>Enter your API Key <span style="color:#999;font-size:0.8rem">(found in Docker logs on first start)</span></li>
+    <li>Enter your API Key <span style="color:#999;font-size:0.8rem">(found in Docker logs)</span></li>
     <li>Click <strong>Connect</strong></li>
   </ol>
   <footer>SHUKI &mdash; Self-hosted notes server</footer>
