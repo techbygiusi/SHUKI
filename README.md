@@ -13,7 +13,7 @@ version: '3.8'
 services:
   shuki-server:
     build:
-      context: https://github.com/techbygiusi/shuki.git#main
+      context: https://github.com/techbygiusi/shuki
       dockerfile: server/Dockerfile
     container_name: shuki-server
     ports:
