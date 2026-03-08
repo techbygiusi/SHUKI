@@ -1,45 +1,20 @@
-# NoteSync
+# SHUKI
 
 A Markdown note-taking Electron app with real-time sync to a self-hosted Docker server.
 
 ## Quick Start
 
-### 1. Deploy the Server
+### Deploy the Server
 
-```bash
-cd server
-docker-compose up --build -d
-```
-
-On first start, the server generates a secure API key. Find it in the Docker logs:
-
-```bash
-docker-compose logs notesync-server
-```
-
-Look for:
-
-```
-================================================
-  NoteSync Server Ready!
-  Your API Key: a3f9...c821
-  Add this key to your NoteSync app to connect.
-================================================
-```
-
-The server runs on port **3000** by default. Data is persisted in a Docker volume.
-
-## Alternative Deployment (docker-compose.yml only)
-
-You don't need to clone the full repository to run the Shuki server.
-
-Just create a `docker-compose.yml` file anywhere on your server with the following content:
+No need to clone the repository. Just create a `docker-compose.yml` file anywhere on your machine or server with the following content:
 
 ```yaml
 version: '3.8'
 services:
   shuki-server:
-    image: techbygiusi/shuki-server:latest
+    build:
+      context: https://github.com/techbygiusi/shuki.git#main
+      dockerfile: server/Dockerfile
     container_name: shuki-server
     ports:
       - "3000:3000"
@@ -64,11 +39,14 @@ volumes:
 Then run:
 
 ```bash
-docker-compose up -d
+docker-compose up --build -d
 ```
 
-On first start, the server automatically generates a secure API key.
-Retrieve it from the logs:
+Docker will automatically pull the source code from GitHub and build the server image.
+
+### Get your API Key
+
+On first start, the server generates a secure API key. Retrieve it from the logs:
 
 ```bash
 docker-compose logs shuki-server
@@ -78,24 +56,20 @@ Look for:
 
 ```
 ================================================
-NoteSync Server Ready!
+SHUKI Server Ready!
 Your API Key: a3f9...c821
 Add this key to your Shuki app to connect.
 ================================================
 ```
 
-The server runs on port 3000. All notes and the API key are stored
-in the Docker volume `shuki-data` and persist across restarts.
+The server runs on port **3000** by default. All notes and the API key are stored in the Docker volume `shuki-data` and persist across restarts.
 
-### 2. Run the Electron App
+### Connect the Electron App
 
-```bash
-cd electron-app
-npm install
-npm run dev
-```
-
-On first launch, enter your server URL (e.g., `http://localhost:3000`) and API key from the Docker logs. You can also choose "Use Offline Only" to skip server sync.
+1. Open the Shuki Electron app
+2. Enter your Server URL: `http://your-server-ip:3000`
+3. Enter your API Key from the Docker logs
+4. Click Connect
 
 ### 3. Build for Production
 

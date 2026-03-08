@@ -46,7 +46,7 @@ export default function Sidebar({ onNewNote, onDeleteNote }: Props) {
           &#9998;
         </div>
         <span className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
-          NoteSync
+          SHUKI
         </span>
         <div className="ml-auto flex items-center gap-1">
           <div

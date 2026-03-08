@@ -1,7 +1,7 @@
 {
-  "name": "notesync-server",
+  "name": "shuki-server",
   "version": "1.0.0",
-  "description": "NoteSync self-hosted sync server",
+  "description": "SHUKI self-hosted sync server",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

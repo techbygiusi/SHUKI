@@ -51,7 +51,7 @@ export default function Onboarding({ onComplete }: Props) {
             <span className="text-2xl">&#9998;</span>
           </div>
           <h1 className="font-display text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-            Welcome to NoteSync
+            Welcome to SHUKI
           </h1>
           <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
             Connect to your self-hosted server or use offline mode

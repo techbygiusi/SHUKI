@@ -35,8 +35,8 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
-  localDb = initLocalDb(app.getPath('userData'));
+app.whenReady().then(async () => {
+  localDb = await initLocalDb(app.getPath('userData'));
   createWindow();
 
   // IPC Handlers

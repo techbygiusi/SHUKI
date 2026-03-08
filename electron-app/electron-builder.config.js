@@ -2,8 +2,8 @@
  * @type {import('electron-builder').Configuration}
  */
 module.exports = {
-  appId: 'com.notesync.app',
-  productName: 'NoteSync',
+  appId: 'com.shuki.app',
+  productName: 'SHUKI',
   directories: {
     output: 'release',
     buildResources: 'build',

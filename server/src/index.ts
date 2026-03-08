@@ -37,9 +37,9 @@ const API_KEY = getOrCreateApiKey();
 
 console.log('');
 console.log('================================================');
-console.log('  NoteSync Server Ready!');
+console.log('  SHUKI Server Ready!');
 console.log(`  Your API Key: ${API_KEY}`);
-console.log('  Add this key to your NoteSync app to connect.');
+console.log('  Add this key to your SHUKI app to connect.');
 console.log('================================================');
 console.log('');
 

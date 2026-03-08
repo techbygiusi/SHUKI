@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 
 export function initDatabase(dataPath: string): Database.Database {
-  const dbPath = path.join(dataPath, 'notesync.db');
+  const dbPath = path.join(dataPath, 'shuki.db');
   const db = new Database(dbPath);
 
   db.pragma('journal_mode = WAL');

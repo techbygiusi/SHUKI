@@ -69,7 +69,7 @@ export default function Settings({ onClose }: Props) {
         zip.file(filename, `# ${note.title}\n\n${note.content}`);
       }
       const blob = await zip.generateAsync({ type: 'blob' });
-      saveAs(blob, 'notesync-export.zip');
+      saveAs(blob, 'shuki-export.zip');
       toast.success(`Exported ${notes.length} notes`);
     } catch {
       toast.error('Failed to export notes');
