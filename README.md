@@ -29,6 +29,64 @@ Look for:
 
 The server runs on port **3000** by default. Data is persisted in a Docker volume.
 
+## Alternative Deployment (docker-compose.yml only)
+
+You don't need to clone the full repository to run the Shuki server.
+
+Just create a `docker-compose.yml` file anywhere on your server with the following content:
+
+```yaml
+version: '3.8'
+services:
+  shuki-server:
+    image: techbygiusi/shuki-server:latest
+    container_name: shuki-server
+    ports:
+      - "3000:3000"
+    volumes:
+      - shuki-data:/data
+    environment:
+      - PORT=3000
+      - DATA_PATH=/data
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+volumes:
+  shuki-data:
+    driver: local
+```
+
+Then run:
+
+```bash
+docker-compose up -d
+```
+
+On first start, the server automatically generates a secure API key.
+Retrieve it from the logs:
+
+```bash
+docker-compose logs shuki-server
+```
+
+Look for:
+
+```
+================================================
+NoteSync Server Ready!
+Your API Key: a3f9...c821
+Add this key to your Shuki app to connect.
+================================================
+```
+
+The server runs on port 3000. All notes and the API key are stored
+in the Docker volume `shuki-data` and persist across restarts.
+
 ### 2. Run the Electron App
 
 ```bash
