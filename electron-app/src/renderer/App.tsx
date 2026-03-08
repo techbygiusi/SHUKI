@@ -250,7 +250,7 @@ export default function App() {
     addToSyncQueue('upsert', 'note', note.id, note);
   }, []);
 
-  const handleNewFolder = useCallback(() => {
+  const handleNewFolder = useCallback((): string => {
     const state = useStore.getState();
     const folder: Folder = {
       id: generateId(),
@@ -263,6 +263,7 @@ export default function App() {
     addFolder(folder);
     saveFolderLocal(folder);
     addToSyncQueue('upsert', 'folder', folder.id, folder);
+    return folder.id;
   }, []);
 
   const handleNoteChange = useCallback((id: string, updates: Partial<Note>) => {
