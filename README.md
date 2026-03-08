@@ -66,7 +66,7 @@ The server runs on port **3000** by default. All notes and the API key are store
 
 ### Connect the Electron App
 
-1. Open the Shuki Electron app
+1. Open SHUKI
 2. Enter your Server URL: `http://your-server-ip:3000`
 3. Enter your API Key from the Docker logs
 4. Click Connect
