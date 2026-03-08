@@ -1,15 +1,15 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY server/package.json server/package-lock.json* ./
 RUN npm install
-COPY tsconfig.json ./
-COPY src ./src
+COPY server/tsconfig.json ./
+COPY server/src ./src
 RUN npm run build
 
 FROM node:20-alpine
 WORKDIR /app
 RUN apk add --no-cache tini
-COPY package.json package-lock.json* ./
+COPY server/package.json server/package-lock.json* ./
 RUN npm install --production
 COPY --from=builder /app/dist ./dist
 RUN mkdir -p /data/images /data/notes
