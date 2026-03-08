@@ -28,7 +28,8 @@ export function createImagesRouter(imagesPath: string): Router {
   });
 
   router.get('/images/:filename', (req: Request, res: Response) => {
-    const filename = path.basename(req.params.filename);
+    const raw = req.params.filename;
+    const filename = path.basename(Array.isArray(raw) ? raw[0] : raw);
     const filePath = path.join(imagesPath, filename);
     res.sendFile(filePath);
   });
