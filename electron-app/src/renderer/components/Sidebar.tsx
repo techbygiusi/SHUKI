@@ -4,7 +4,7 @@ import { Note, Folder, SyncState } from '../types';
 
 interface Props {
   onNewNote: () => void;
-  onNewFolder: () => void;
+  onNewFolder: () => string;
   onDeleteNote: (id: string) => void;
   onDeleteFolder: (id: string) => void;
   onRenameFolder: (id: string, name: string) => void;
@@ -146,12 +146,17 @@ export default function Sidebar({
           + Note
         </button>
         <button
-          onClick={onNewFolder}
+          onClick={() => {
+            const newId = onNewFolder();
+            if (newId) {
+              setTimeout(() => startRename(newId, 'New Folder'), 50);
+            }
+          }}
           className="py-2 px-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
           style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
           title="New Folder"
         >
-          +&#128193;
+          +{'\u{1F4C1}'}
         </button>
         <button
           onClick={() => setShowGallery(true)}
@@ -159,7 +164,7 @@ export default function Sidebar({
           style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
           title="Image Gallery"
         >
-          &#128247;
+          {'\u{1F5BC}'}
         </button>
       </div>
 
@@ -202,15 +207,27 @@ export default function Sidebar({
                   setActiveFolderId(folder.id);
                   toggleCollapse(folder.id);
                 }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startRename(folder.id, folder.name);
+                }}
                 onContextMenu={(e) => handleFolderContextMenu(e, folder.id)}
                 onDragOver={(e) => handleDragOver(e, folder.id)}
                 onDrop={(e) => handleDrop(e, folder.id)}
                 onDragLeave={handleDragLeave}
               >
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  {isCollapsed ? '&#9654;' : '&#9660;'}
-                </span>
-                <span className="text-sm mr-1">&#128193;</span>
+                <svg
+                  width="10" height="10" viewBox="0 0 10 10"
+                  style={{
+                    color: 'var(--text-secondary)',
+                    transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.15s ease',
+                    flexShrink: 0,
+                  }}
+                >
+                  <path d="M2 3 L5 6 L8 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span className="text-sm mr-1">{'\u{1F4C1}'}</span>
                 {renamingFolderId === folder.id ? (
                   <input
                     autoFocus
@@ -297,7 +314,7 @@ export default function Sidebar({
           className="w-full py-2 rounded-xl text-sm transition-all hover:opacity-80 flex items-center justify-center gap-2"
           style={{ color: 'var(--text-secondary)' }}
         >
-          &#9881; Settings
+          {'\u2699'} Settings
         </button>
       </div>
     </aside>

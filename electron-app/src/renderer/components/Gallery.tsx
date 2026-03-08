@@ -20,15 +20,20 @@ export default function Gallery({ onClose, onOpenNote }: Props) {
   const { notes, folders } = useStore();
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [imagesBasePath, setImagesBasePath] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadImages();
   }, [notes]);
 
   async function loadImages() {
-    const basePath = await getImagesPath();
-    setImagesBasePath(basePath);
-    const filenames = await listLocalImages();
+    try {
+      setLoading(true);
+      setError(null);
+      const basePath = await getImagesPath();
+      setImagesBasePath(basePath);
+      const filenames = await listLocalImages();
 
     const galleryImages: GalleryImage[] = [];
     for (const filename of filenames) {
@@ -53,7 +58,39 @@ export default function Gallery({ onClose, onOpenNote }: Props) {
       galleryImages.push({ filename, fullPath, noteId, noteTitle, folderName });
     }
 
+    // Also extract inline/base64 images from note content
+    const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    for (const note of notes) {
+      let match;
+      while ((match = imgRegex.exec(note.content)) !== null) {
+        const src = match[2];
+        // Skip images we already found from local files
+        if (galleryImages.some((g) => src.includes(g.filename))) continue;
+        // Only include data: URIs or http URLs (not shuki:// which are already covered)
+        if (src.startsWith('data:') || src.startsWith('http')) {
+          let folderName: string | null = null;
+          if (note.folderId) {
+            const folder = folders.find((f) => f.id === note.folderId);
+            folderName = folder?.name || null;
+          }
+          galleryImages.push({
+            filename: match[1] || 'image',
+            fullPath: src,
+            noteId: note.id,
+            noteTitle: note.title,
+            folderName,
+          });
+        }
+      }
+    }
+
     setImages(galleryImages);
+    } catch (err) {
+      setError('Could not load images. Make sure the app has access to the images directory.');
+      setImages([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -72,13 +109,28 @@ export default function Gallery({ onClose, onOpenNote }: Props) {
           </button>
         </div>
 
-        {images.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-16">
+            <p className="font-display text-lg" style={{ color: 'var(--text-secondary)' }}>
+              Loading images...
+            </p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-16">
+            <p className="font-display text-lg" style={{ color: '#ef4444' }}>
+              {error}
+            </p>
+          </div>
+        ) : images.length === 0 ? (
           <div className="text-center py-16">
             <p className="font-display italic text-lg" style={{ color: 'var(--text-secondary)' }}>
               No images yet
             </p>
             <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
-              Paste or drag images into your notes to see them here
+              Paste or drag images into your notes and they will appear here.
+            </p>
+            <p className="text-xs mt-4" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
+              Tip: You can paste images with Ctrl/Cmd+V or drag them into the editor.
             </p>
           </div>
         ) : (
@@ -100,7 +152,7 @@ export default function Gallery({ onClose, onOpenNote }: Props) {
               >
                 <div className="aspect-square overflow-hidden">
                   <img
-                    src={`shuki://${encodeURIComponent(img.fullPath)}`}
+                    src={img.fullPath.startsWith('data:') || img.fullPath.startsWith('http') ? img.fullPath : `shuki://${encodeURIComponent(img.fullPath)}`}
                     alt={img.filename}
                     className="w-full h-full object-cover"
                     onError={(e) => {

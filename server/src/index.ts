@@ -114,17 +114,47 @@ app.get('/', (_req, res) => {
   <footer>SHUKI &mdash; Self-hosted notes server</footer>
 </div>
 <script>
-  document.getElementById('server-url').textContent = window.location.origin;
-  fetch('/api/health')
-    .then(r => r.json())
-    .then(d => {
-      document.getElementById('status').textContent = d.status === 'ok' ? 'Server is healthy' : 'Server is down';
-      document.getElementById('version').textContent = 'v' + (d.version || '?');
-    })
-    .catch(() => {
-      document.getElementById('status').textContent = 'Server is down';
-      document.getElementById('version').textContent = '';
-    });
+  (function() {
+    var urlEl = document.getElementById('server-url');
+    var statusEl = document.getElementById('status');
+    var versionEl = document.getElementById('version');
+    var serverUrl = window.location.origin;
+    urlEl.textContent = serverUrl;
+
+    function checkHealth() {
+      try {
+        fetch('/api/health')
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (d.status === 'ok') {
+              statusEl.textContent = '\\u2705 Server is healthy';
+              statusEl.style.color = '#166534';
+              statusEl.style.background = '#dcfce7';
+              versionEl.textContent = 'v' + (d.version || '1.0.0');
+            } else {
+              statusEl.textContent = '\\u274c Server unreachable';
+              statusEl.style.color = '#991b1b';
+              statusEl.style.background = '#fee2e2';
+              setTimeout(checkHealth, 3000);
+            }
+          })
+          .catch(function() {
+            statusEl.textContent = '\\u274c Server unreachable';
+            statusEl.style.color = '#991b1b';
+            statusEl.style.background = '#fee2e2';
+            versionEl.textContent = '';
+            setTimeout(checkHealth, 3000);
+          });
+      } catch(e) {
+        statusEl.textContent = '\\u274c Server unreachable';
+        statusEl.style.color = '#991b1b';
+        statusEl.style.background = '#fee2e2';
+        setTimeout(checkHealth, 3000);
+      }
+    }
+
+    checkHealth();
+  })();
 </script>
 </body>
 </html>`);

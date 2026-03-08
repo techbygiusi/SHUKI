@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useEffect } from 'react';
+import React, { useCallback, useMemo, useEffect, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -230,25 +230,12 @@ export default function Editor({ note, onChange, folders }: Props) {
           {editorMode === 'rich' ? (
             <EditorContent editor={editor} />
           ) : (
-            <div className="relative">
-              <div className="flex items-center justify-end mb-2">
-                <button
-                  onClick={toggleMode}
-                  className="px-2 py-1 rounded text-xs font-mono transition-all hover:opacity-80"
-                  style={{ backgroundColor: 'var(--accent-primary)', color: '#fff' }}
-                  title="Switch to Rich Text"
-                >
-                  WYSIWYG
-                </button>
-              </div>
-              <textarea
-                value={note.content}
-                onChange={handleMarkdownChange}
-                className="w-full min-h-[60vh] bg-transparent outline-none resize-none font-mono"
-                style={{ color: 'var(--text-primary)', fontSize: settings.fontSize, lineHeight: '1.8' }}
-                placeholder="Write in Markdown..."
-              />
-            </div>
+            <MarkdownView
+              note={note}
+              onContentChange={handleMarkdownChange}
+              onToggleMode={toggleMode}
+              fontSize={settings.fontSize}
+            />
           )}
         </div>
       </div>
@@ -271,6 +258,67 @@ export default function Editor({ note, onChange, folders }: Props) {
           <span>{syncLabel}</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MarkdownView({ note, onContentChange, onToggleMode, fontSize }: {
+  note: Note;
+  onContentChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onToggleMode: () => void;
+  fontSize: number;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyMarkdown = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(note.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea');
+      textarea.value = note.content;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [note.content]);
+
+  return (
+    <div className="relative">
+      <div className="flex items-center justify-end mb-2 gap-2">
+        <button
+          onClick={handleCopyMarkdown}
+          className="px-3 py-1 rounded text-xs font-medium transition-all hover:opacity-80"
+          style={{
+            backgroundColor: copied ? '#22c55e' : 'var(--bg-card)',
+            color: copied ? '#fff' : 'var(--text-primary)',
+            border: '1px solid var(--border)',
+          }}
+          title="Copy raw Markdown to clipboard"
+        >
+          {copied ? 'Copied!' : 'Copy Markdown'}
+        </button>
+        <button
+          onClick={onToggleMode}
+          className="px-2 py-1 rounded text-xs font-mono transition-all hover:opacity-80"
+          style={{ backgroundColor: 'var(--accent-primary)', color: '#fff' }}
+          title="Switch to Rich Text"
+        >
+          WYSIWYG
+        </button>
+      </div>
+      <textarea
+        value={note.content}
+        onChange={onContentChange}
+        className="w-full min-h-[60vh] bg-transparent outline-none resize-none font-mono"
+        style={{ color: 'var(--text-primary)', fontSize, lineHeight: '1.8' }}
+        placeholder="Write in Markdown..."
+      />
     </div>
   );
 }
