@@ -13,7 +13,7 @@ version: '3.8'
 services:
   shuki-server:
     build:
-      context: https://github.com/techbygiusi/SHUKI
+      context: https://github.com/techbygiusi/shuki.git#main
       dockerfile: server/Dockerfile
     container_name: shuki-server
     ports:
@@ -26,11 +26,12 @@ services:
       - NODE_ENV=production
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
+
 volumes:
   shuki-data:
     driver: local
