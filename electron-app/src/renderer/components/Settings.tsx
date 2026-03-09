@@ -99,18 +99,30 @@ export default function Settings({ onClose }: Props) {
     saveSettings({ autoSaveInterval: interval });
   };
 
+  const [serverUpdateStatus, setServerUpdateStatus] = useState<'idle' | 'checking' | 'success' | 'error'>('idle');
+  const [serverUpdateMsg, setServerUpdateMsg] = useState('');
+
   const handleServerUpdate = async () => {
     const url = serverUrl.replace(/\/+$/, '');
+    setServerUpdateStatus('checking');
+    setServerUpdateMsg('');
     const result = await checkServerHealth(url, apiKey);
     if (result.ok) {
       setSettings({ serverUrl: url, apiKey, offlineOnly: false });
       saveSettings({ serverUrl: url, apiKey, offlineOnly: false });
       setServerStatus({ connected: true });
+      setServerUpdateStatus('success');
+      setServerUpdateMsg('\u2705 Connection updated successfully');
       toast.success('Server connection updated');
     } else if (result.errorType === 'auth') {
-      toast.error('Invalid API Key');
+      setServerUpdateStatus('error');
+      setServerUpdateMsg('\u274C Invalid API Key');
+    } else if (result.errorType === 'network') {
+      setServerUpdateStatus('error');
+      setServerUpdateMsg('\u274C Server not reachable \u2014 check the URL');
     } else {
-      toast.error('Could not connect to server');
+      setServerUpdateStatus('error');
+      setServerUpdateMsg('\u274C Could not connect to server');
     }
   };
 
@@ -309,13 +321,28 @@ export default function Settings({ onClose }: Props) {
                     </button>
                   </div>
                 </div>
+                {serverUpdateMsg && (
+                  <div
+                    className="text-sm px-3 py-2 rounded-xl"
+                    style={{
+                      backgroundColor: serverUpdateStatus === 'error' ? '#fee' : '#efe',
+                      color: serverUpdateStatus === 'error' ? '#c33' : '#363',
+                    }}
+                  >
+                    {serverUpdateMsg}
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={handleServerUpdate}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                    disabled={serverUpdateStatus === 'checking'}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
                     style={{ backgroundColor: 'var(--accent-primary)', color: '#fff' }}
                   >
-                    Update Connection
+                    {serverUpdateStatus === 'checking' && (
+                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    )}
+                    {serverUpdateStatus === 'checking' ? 'Checking...' : 'Update Connection'}
                   </button>
                   <button
                     onClick={() => {

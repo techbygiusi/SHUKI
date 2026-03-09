@@ -56,7 +56,7 @@ export function disconnectSocket(): void {
   }
 }
 
-export async function checkServerHealth(serverUrl: string, _apiKey: string): Promise<{
+export async function checkServerHealth(serverUrl: string, apiKey: string): Promise<{
   ok: boolean;
   data?: { status: string; clients: number; storage: { free: number; total: number; path: string }; version: string };
   errorType?: 'network' | 'auth' | 'unknown';
@@ -64,11 +64,12 @@ export async function checkServerHealth(serverUrl: string, _apiKey: string): Pro
   try {
     const res = await axios.get(`${serverUrl}/api/health`, {
       timeout: 10000,
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
     });
     return { ok: true, data: res.data };
   } catch (err: unknown) {
     if (axios.isAxiosError(err)) {
-      if (err.response?.status === 403) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
         return { ok: false, errorType: 'auth' };
       }
       if (!err.response) {

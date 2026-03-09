@@ -8,6 +8,9 @@ import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import Highlight from '@tiptap/extension-highlight';
+import { Color } from '@tiptap/extension-color';
+import { TextStyle } from '@tiptap/extension-text-style';
 import { common, createLowlight } from 'lowlight';
 import { useStore } from '../store/useStore';
 import { Note, Folder } from '../types';
@@ -76,8 +79,27 @@ interface Props {
   folders: Folder[];
 }
 
+const COLOR_PALETTE = [
+  { name: 'Black', hex: '#000000' },
+  { name: 'Dark Grey', hex: '#4A4A4A' },
+  { name: 'Grey', hex: '#9B9B9B' },
+  { name: 'White', hex: '#FFFFFF' },
+  { name: 'Red', hex: '#E53E3E' },
+  { name: 'Orange', hex: '#ED8936' },
+  { name: 'Amber', hex: '#C17F3A' },
+  { name: 'Yellow', hex: '#ECC94B' },
+  { name: 'Green', hex: '#38A169' },
+  { name: 'Teal', hex: '#319795' },
+  { name: 'Blue', hex: '#3182CE' },
+  { name: 'Purple', hex: '#7C5CBF' },
+  { name: 'Pink', hex: '#D53F8C' },
+  { name: 'Brown', hex: '#8B6914' },
+];
+
 export default function Editor({ note, onChange, folders }: Props) {
   const { editorMode, setEditorMode, settings, serverStatus, syncState } = useStore();
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
 
   const folder = useMemo(() => {
     if (!note.folderId) return null;
@@ -103,6 +125,9 @@ export default function Editor({ note, onChange, folders }: Props) {
       TaskList,
       TaskItem.configure({ nested: true }),
       CodeBlockLowlight.configure({ lowlight }),
+      Highlight.configure({ multicolor: false }),
+      TextStyle,
+      Color,
     ],
     content: note.content ? markdownToHtml(note.content) : '',
     editorProps: {
@@ -213,19 +238,37 @@ export default function Editor({ note, onChange, folders }: Props) {
     }
   }, [editor]);
 
+  // Close color picker on outside click
+  useEffect(() => {
+    if (!showColorPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        setShowColorPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showColorPicker]);
+
+  const currentTextColor = editor?.getAttributes('textStyle')?.color || null;
+
   const syncDot = note.synced
     ? '#22c55e'
     : serverStatus.connected
     ? '#f59e0b'
     : '#ef4444';
 
-  const syncLabel = note.synced
+  const syncLabel = syncState === 'auth_error'
+    ? 'Auth Error'
+    : note.synced
     ? 'Saved & synced'
     : syncState === 'syncing'
     ? 'Syncing...'
     : syncState === 'pending'
     ? 'Pending sync'
-    : 'Offline — saved locally';
+    : 'Offline \u2014 saved locally';
+
+  const syncDotOverride = syncState === 'auth_error' ? '#ef4444' : syncDot;
 
   return (
     <div className="flex flex-col h-full fade-in">
@@ -272,9 +315,77 @@ export default function Editor({ note, onChange, folders }: Props) {
           <Sep />
           <ToolBtn active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Blockquote">&#8220;</ToolBtn>
           <ToolBtn active={editor.isActive('codeBlock')} onClick={() => editor.chain().focus().toggleCodeBlock().run()} title="Code block">&lt;/&gt;</ToolBtn>
-          <ToolBtn active={false} onClick={insertLink} title="Insert link">&#128279;</ToolBtn>
-          <ToolBtn active={false} onClick={insertImage} title="Insert image">&#128247;</ToolBtn>
-          <ToolBtn active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">&#8213;</ToolBtn>
+          <ToolBtn active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()} title="Highlight">{'\uD83D\uDD8D'}</ToolBtn>
+          <Sep />
+          <ToolBtn
+            active={editor.isActive('link')}
+            onClick={() => {
+              if (editor.isActive('link')) {
+                editor.chain().focus().unsetLink().run();
+              } else {
+                const url = prompt('Enter URL:');
+                if (url) editor.chain().focus().setLink({ href: url }).run();
+              }
+            }}
+            title={editor.isActive('link') ? 'Remove link' : 'Insert link'}
+          >{'\uD83D\uDD17'}</ToolBtn>
+          <ToolBtn active={false} onClick={insertImage} title="Insert image">{'\uD83D\uDCF7'}</ToolBtn>
+          <ToolBtn active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">{'\u2015'}</ToolBtn>
+          <Sep />
+          <div className="relative" ref={colorPickerRef}>
+            <button
+              onClick={() => setShowColorPicker(!showColorPicker)}
+              title="Text color"
+              className="w-7 h-7 flex flex-col items-center justify-center rounded text-xs font-bold transition-all"
+              style={{
+                backgroundColor: showColorPicker ? 'var(--accent-primary)' : 'transparent',
+                color: showColorPicker ? '#fff' : 'var(--text-secondary)',
+              }}
+            >
+              <span>A</span>
+              <span className="w-4 h-1 rounded-sm mt-px" style={{ backgroundColor: currentTextColor || 'var(--text-primary)' }} />
+            </button>
+            {showColorPicker && (
+              <div
+                className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 p-2 rounded-xl shadow-lg z-50"
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  boxShadow: 'var(--shadow)',
+                }}
+              >
+                <div className="grid grid-cols-7 gap-1 mb-1.5" style={{ width: '182px' }}>
+                  {COLOR_PALETTE.map((c) => (
+                    <button
+                      key={c.hex}
+                      title={c.name}
+                      className="w-6 h-6 rounded-md transition-all hover:scale-110"
+                      style={{
+                        backgroundColor: c.hex,
+                        border: c.hex === '#FFFFFF' ? '1px solid var(--border)' : '1px solid transparent',
+                        outline: currentTextColor === c.hex ? '2px solid var(--accent-primary)' : 'none',
+                        outlineOffset: '1px',
+                      }}
+                      onClick={() => {
+                        editor.chain().focus().setColor(c.hex).run();
+                        setShowColorPicker(false);
+                      }}
+                    />
+                  ))}
+                </div>
+                <button
+                  className="w-full text-xs py-1 rounded-md transition-all hover:opacity-80"
+                  style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}
+                  onClick={() => {
+                    editor.chain().focus().unsetColor().run();
+                    setShowColorPicker(false);
+                  }}
+                >
+                  Remove color
+                </button>
+              </div>
+            )}
+          </div>
           <div className="flex-1" />
           <button
             onClick={toggleMode}
@@ -317,7 +428,7 @@ export default function Editor({ note, onChange, folders }: Props) {
           <span>{charCount} characters</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: syncDot }} />
+          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: syncDotOverride }} />
           <span>{syncLabel}</span>
         </div>
       </div>
@@ -453,6 +564,8 @@ function markdownToHtml(md: string): string {
 
 function htmlToMarkdown(html: string): string {
   let md = html;
+  // Preserve color spans as HTML in markdown (they'll be converted back)
+  // Keep <span style="color: ...">...</span> and <mark>...</mark> as-is for roundtrip
   // Remove wrapping tags
   md = md.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n');
   md = md.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n');

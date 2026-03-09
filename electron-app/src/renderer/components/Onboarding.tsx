@@ -35,10 +35,13 @@ export default function Onboarding({ onComplete }: Props) {
       setTimeout(() => onComplete({ serverUrl: url, apiKey, offlineOnly: false }), 800);
     } else if (result.errorType === 'auth') {
       setStatus('error');
-      setErrorMsg('Invalid API Key. Check the key from your Docker logs.');
+      setErrorMsg('\u274C Invalid API Key \u2014 please check your key in the Docker logs');
+    } else if (result.errorType === 'network') {
+      setStatus('error');
+      setErrorMsg('\u274C Server not reachable \u2014 check the URL');
     } else {
       setStatus('error');
-      setErrorMsg('Could not connect to server. Check the URL and make sure the server is running.');
+      setErrorMsg('\u274C Could not connect to server. Check the URL and make sure the server is running.');
     }
   };
 
