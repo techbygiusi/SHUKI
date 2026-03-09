@@ -113,7 +113,7 @@ app.get('/', (_req, res) => {
     <li>Enter your API Key <span style="color:#7A6A55;font-size:0.8rem">(found in Docker logs)</span></li>
     <li>Click <strong>Connect</strong></li>
   </ol>
-  <footer>SHUKI &mdash; Self-hosted notes server</footer>
+  <footer>SHUKI - Self-hosted notes server</footer>
 </div>
 <script>
   document.getElementById('url').value = window.location.origin;
