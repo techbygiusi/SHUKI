@@ -106,12 +106,14 @@ export default function Sidebar({
     syncState === 'synced' ? '#22c55e'
     : syncState === 'syncing' ? '#f59e0b'
     : syncState === 'pending' ? '#f97316'
+    : syncState === 'auth_error' ? '#ef4444'
     : '#ef4444';
 
   const syncLabel =
     syncState === 'synced' ? (serverStatus.lastSync ? `Last synced ${formatTimeAgo(serverStatus.lastSync)}` : 'Synced')
     : syncState === 'syncing' ? 'Syncing...'
     : syncState === 'pending' ? `Pending (${pendingChanges} changes)`
+    : syncState === 'auth_error' ? 'Invalid API Key \u2014 tap to fix'
     : 'Offline';
 
   return (
@@ -336,9 +338,18 @@ export default function Sidebar({
 
       {/* Sync status + Settings */}
       <div className="p-3 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+        <div
+          className={`flex items-center gap-2 text-xs ${syncState === 'auth_error' ? 'cursor-pointer hover:opacity-80' : ''}`}
+          style={{ color: syncState === 'auth_error' ? '#ef4444' : 'var(--text-secondary)' }}
+          onClick={() => {
+            if (syncState === 'auth_error') {
+              setShowSettings(true);
+              useStore.getState().setSettingsTab('server');
+            }
+          }}
+        >
           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: syncDotColor }} />
-          <span className="truncate">{syncLabel}</span>
+          <span className="truncate">{syncState === 'auth_error' ? '\uD83D\uDD11 ' : ''}{syncLabel}</span>
         </div>
         <button
           onClick={() => setShowSettings(true)}

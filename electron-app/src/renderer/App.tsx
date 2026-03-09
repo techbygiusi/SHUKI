@@ -98,31 +98,56 @@ export default function App() {
 
     const api = initApi(settings.serverUrl, settings.apiKey);
 
-    // Fetch and merge
-    Promise.all([
-      fetchNotes(api).catch(() => null),
-      fetchFolders(api).catch(() => null),
-    ]).then(async ([serverNotes, serverFolders]) => {
-      if (serverNotes) {
-        const localNotes = await loadNotesFromLocal();
-        const merged = mergeNotes(localNotes, serverNotes);
-        setNotes(merged);
-        for (const n of merged) await saveNoteLocal(n);
+    // Validate credentials on startup before syncing
+    checkServerHealth(settings.serverUrl, settings.apiKey).then(async (healthResult) => {
+      if (healthResult.errorType === 'auth') {
+        setSyncState('auth_error');
+        setServerStatus({ connected: false });
+        return;
       }
-      if (serverFolders) {
-        const localFolders = await loadFoldersFromLocal();
-        const merged = mergeFolders(localFolders, serverFolders);
-        setFolders(merged);
-        for (const f of merged) await saveFolderLocal(f);
+      if (!healthResult.ok) {
+        setServerStatus({ connected: false });
+        setSyncState('offline');
+        // Still try to fetch in case health endpoint is unprotected
       }
-      setServerStatus({ connected: true, lastSync: new Date().toISOString() });
-      setSyncState('synced');
-      // Push any pending local changes to server
-      syncPendingChanges();
-    }).catch((err) => {
-      console.error('[Sync] Initial fetch failed:', err);
-      setServerStatus({ connected: false });
-      setSyncState('offline');
+
+      // Fetch and merge
+      try {
+        const [serverNotes, serverFolders] = await Promise.all([
+          fetchNotes(api).catch((err) => {
+            if (err?.response?.status === 401 || err?.response?.status === 403) {
+              setSyncState('auth_error');
+              setServerStatus({ connected: false });
+            }
+            return null;
+          }),
+          fetchFolders(api).catch(() => null),
+        ]);
+
+        // If auth error was detected, stop
+        const currentSyncState = useStore.getState().syncState;
+        if (currentSyncState === 'auth_error') return;
+
+        if (serverNotes) {
+          const localNotes = await loadNotesFromLocal();
+          const merged = mergeNotes(localNotes, serverNotes);
+          setNotes(merged);
+          for (const n of merged) await saveNoteLocal(n);
+        }
+        if (serverFolders) {
+          const localFolders = await loadFoldersFromLocal();
+          const merged = mergeFolders(localFolders, serverFolders);
+          setFolders(merged);
+          for (const f of merged) await saveFolderLocal(f);
+        }
+        setServerStatus({ connected: true, lastSync: new Date().toISOString() });
+        setSyncState('synced');
+        syncPendingChanges();
+      } catch (err) {
+        console.error('[Sync] Initial fetch failed:', err);
+        setServerStatus({ connected: false });
+        setSyncState('offline');
+      }
     });
 
     // WebSocket
@@ -151,18 +176,31 @@ export default function App() {
     );
 
     sock.on('connect', () => {
-      setServerStatus({ connected: true });
-      setSyncState('synced');
-      syncPendingChanges();
+      const state = useStore.getState();
+      if (state.syncState !== 'auth_error') {
+        setServerStatus({ connected: true });
+        setSyncState('synced');
+        syncPendingChanges();
+      }
     });
     sock.on('disconnect', () => {
-      setServerStatus({ connected: false });
-      setSyncState('offline');
+      const state = useStore.getState();
+      if (state.syncState !== 'auth_error') {
+        setServerStatus({ connected: false });
+        setSyncState('offline');
+      }
     });
 
     // Health check every 30s
     const healthInterval = setInterval(async () => {
+      const state = useStore.getState();
+      if (state.syncState === 'auth_error') return; // Don't retry with bad key
       const result = await checkServerHealth(settings.serverUrl, settings.apiKey);
+      if (result.errorType === 'auth') {
+        setSyncState('auth_error');
+        setServerStatus({ connected: false });
+        return;
+      }
       setServerStatus({
         connected: result.ok,
         ...(result.data ? { clients: result.data.clients, storage: result.data.storage } : {}),
@@ -298,7 +336,7 @@ export default function App() {
       cleanupOrphanedImages(state.notes);
 
       const api = getApi();
-      if (api && !state.settings.offlineOnly) {
+      if (api && !state.settings.offlineOnly && state.syncState !== 'auth_error') {
         try {
           setSyncState('syncing');
           await syncNote(api, updated);
@@ -306,9 +344,15 @@ export default function App() {
           await saveNoteLocal({ ...updated, synced: true });
           setServerStatus({ lastSync: new Date().toISOString() });
           setSyncState('synced');
-        } catch {
-          await addToSyncQueue('upsert', 'note', id, updated);
-          setSyncState('pending');
+        } catch (err: unknown) {
+          const axiosErr = err as { response?: { status?: number } };
+          if (axiosErr?.response?.status === 401 || axiosErr?.response?.status === 403) {
+            setSyncState('auth_error');
+            setServerStatus({ connected: false });
+          } else {
+            await addToSyncQueue('upsert', 'note', id, updated);
+            setSyncState('pending');
+          }
         }
       } else {
         await addToSyncQueue('upsert', 'note', id, updated);
@@ -417,7 +461,7 @@ export default function App() {
   async function syncPendingChanges() {
     const api = getApi();
     const state = useStore.getState();
-    if (!api || state.settings.offlineOnly) return;
+    if (!api || state.settings.offlineOnly || state.syncState === 'auth_error') return;
 
     setSyncState('syncing');
 
@@ -428,7 +472,13 @@ export default function App() {
         await syncNote(api, note);
         await markNoteSynced(note.id);
         updateNote(note.id, { synced: true });
-      } catch (err) {
+      } catch (err: unknown) {
+        const axiosErr = err as { response?: { status?: number } };
+        if (axiosErr?.response?.status === 401 || axiosErr?.response?.status === 403) {
+          setSyncState('auth_error');
+          setServerStatus({ connected: false });
+          return;
+        }
         console.error(`[Sync] Failed to sync note "${note.title}" (${note.id}):`, err);
       }
     }
@@ -441,7 +491,6 @@ export default function App() {
           if (item.action === 'delete') {
             await deleteNoteOnServer(api, item.entityId);
           } else {
-            // Use latest local data if available, fall back to queued payload
             const latestNotes = await loadNotesFromLocal();
             const latestNote = latestNotes.find(n => n.id === item.entityId);
             const payload = latestNote || (JSON.parse(item.payload) as Note);
@@ -458,9 +507,14 @@ export default function App() {
           }
         }
         await removeSyncQueueItem(item.id);
-      } catch (err) {
+      } catch (err: unknown) {
+        const axiosErr = err as { response?: { status?: number } };
+        if (axiosErr?.response?.status === 401 || axiosErr?.response?.status === 403) {
+          setSyncState('auth_error');
+          setServerStatus({ connected: false });
+          return;
+        }
         console.error(`[Sync] Failed to process queue item ${item.id} (${item.entityType}/${item.action}):`, err);
-        // Will retry on next sync cycle (30s)
       }
     }
 
@@ -516,7 +570,23 @@ export default function App() {
   const activeNote = notes.find((n) => n.id === activeNoteId);
 
   return (
-    <div className="flex h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="flex flex-col h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      {syncState === 'auth_error' && (
+        <div
+          className="flex items-center justify-between px-4 py-2 text-sm"
+          style={{ backgroundColor: '#fef2f2', color: '#991b1b', borderBottom: '1px solid #fecaca' }}
+        >
+          <span>{'\u26A0\uFE0F'} Sync failed: Invalid API Key {'\u2014'} go to Settings {'\u2192'} Server to fix</span>
+          <button
+            onClick={() => { setShowSettings(true); useStore.getState().setSettingsTab('server'); }}
+            className="px-3 py-1 rounded-lg text-xs font-semibold"
+            style={{ backgroundColor: '#991b1b', color: '#fff' }}
+          >
+            Open Settings
+          </button>
+        </div>
+      )}
+      <div className="flex flex-1 overflow-hidden">
       <Sidebar
         onNewNote={handleNewNote}
         onNewFolder={handleNewFolder}
@@ -542,6 +612,7 @@ export default function App() {
           </div>
         )}
       </main>
+      </div>
       <Toaster
         position="bottom-right"
         toastOptions={{
