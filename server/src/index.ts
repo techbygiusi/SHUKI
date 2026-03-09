@@ -99,13 +99,13 @@ app.get('/', (_req, res) => {
 <div class="card">
   <h1>SHUKI</h1>
   <div class="version">v1.0.0</div>
-  <div class="status">✅ Server is online</div>
+  <div class="status">\\u2705 Server is online</div>
   <h2>Connect with the Shuki App</h2>
   <ol class="steps">
     <li>Open Shuki</li>
     <li>Enter this server URL:
       <div class="url-block">
-        <input type="text" id="server-url" readonly />
+        <input type="text" id="url" readonly />
         <button id="copy-btn">Copy</button>
       </div>
     </li>
@@ -115,15 +115,13 @@ app.get('/', (_req, res) => {
   <footer>SHUKI &mdash; Self-hosted notes server</footer>
 </div>
 <script>
-  var url = window.location.origin;
-  document.getElementById('server-url').value = url;
-  document.getElementById('copy-btn').onclick = function() {
-    navigator.clipboard.writeText(url);
-    document.getElementById('copy-btn').innerText = 'Copied!';
-    setTimeout(function() {
-      document.getElementById('copy-btn').innerText = 'Copy';
-    }, 2000);
-  };
+  document.getElementById('url').value = window.location.origin;
+  document.getElementById('copy-btn').addEventListener('click', function() {
+    navigator.clipboard.writeText(window.location.origin);
+    this.textContent = 'Copied!';
+    var btn = this;
+    setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+  });
 </script>
 </body>
 </html>`);

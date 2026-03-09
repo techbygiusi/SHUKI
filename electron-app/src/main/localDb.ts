@@ -1,4 +1,4 @@
-import initSqlJs, { Database as SqlJsDatabase, SqlValue } from 'sql.js';
+import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -49,7 +49,7 @@ export interface LocalDatabase {
   clearSyncQueue: () => void;
 }
 
-function rowsToArray<T>(db: SqlJsDatabase, sql: string, params?: SqlValue[]): T[] {
+function rowsToArray<T>(db: SqlJsDatabase, sql: string, params?: unknown[]): T[] {
   const stmt = db.prepare(sql);
   if (params) stmt.bind(params);
   const results: T[] = [];
