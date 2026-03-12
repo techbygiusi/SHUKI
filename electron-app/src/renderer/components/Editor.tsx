@@ -96,22 +96,82 @@ const COLOR_PALETTE = [
   { name: 'Brown', hex: '#8B6914' },
 ];
 
+const SLASH_COMMANDS = [
+  { id: 'h1', label: 'Heading 1', icon: 'H1' },
+  { id: 'h2', label: 'Heading 2', icon: 'H2' },
+  { id: 'h3', label: 'Heading 3', icon: 'H3' },
+  { id: 'bullet', label: 'Bullet List', icon: '•' },
+  { id: 'numbered', label: 'Numbered List', icon: '1.' },
+  { id: 'todo', label: 'To-do List', icon: '☑' },
+  { id: 'code', label: 'Code Block', icon: '</>' },
+  { id: 'quote', label: 'Quote', icon: '"' },
+  { id: 'divider', label: 'Divider', icon: '—' },
+  { id: 'image', label: 'Image', icon: '🖼' },
+];
+
+/** Check if content string looks like TipTap JSON */
+function isJsonContent(content: string): boolean {
+  if (!content) return false;
+  const trimmed = content.trimStart();
+  return trimmed.startsWith('{"type":') || trimmed.startsWith('{"type" :');
+}
+
+/** Parse stored content: returns TipTap JSON object or HTML string for legacy markdown */
+function parseNoteContent(content: string): object | string {
+  if (!content) return '';
+  if (isJsonContent(content)) {
+    try {
+      return JSON.parse(content);
+    } catch {
+      return '';
+    }
+  }
+  // Legacy markdown content — convert to HTML for editor
+  return markdownToHtml(content);
+}
+
+/** Extract plain text from content for word counting */
+function getPlainText(content: string): string {
+  if (isJsonContent(content)) {
+    try {
+      const json = JSON.parse(content);
+      return extractTextFromJson(json);
+    } catch {
+      return '';
+    }
+  }
+  return content.replace(/[#*_~`>\[\]()!|-]/g, '').trim();
+}
+
+function extractTextFromJson(node: Record<string, unknown>): string {
+  if (node.type === 'text') return (node.text as string) || '';
+  const children = node.content as Record<string, unknown>[] | undefined;
+  if (!children) return '';
+  return children.map(extractTextFromJson).join(' ');
+}
+
 export default function Editor({ note, onChange, folders }: Props) {
-  const { editorMode, setEditorMode, settings, serverStatus, syncState } = useStore();
+  const { editorMode, setEditorMode, settings } = useStore();
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashFilter, setSlashFilter] = useState('');
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [slashPos, setSlashPos] = useState<{ top: number; left: number } | null>(null);
+  const [hoveringFooter, setHoveringFooter] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const folder = useMemo(() => {
     if (!note.folderId) return null;
     return folders.find((f) => f.id === note.folderId) || null;
   }, [note.folderId, folders]);
 
+  const plainText = useMemo(() => getPlainText(note.content), [note.content]);
   const wordCount = useMemo(() => {
-    const words = note.content.trim().split(/\s+/).filter(Boolean);
+    const words = plainText.trim().split(/\s+/).filter(Boolean);
     return words.length;
-  }, [note.content]);
-
-  const charCount = note.content.length;
+  }, [plainText]);
+  const charCount = plainText.length;
 
   const editor = useEditor({
     extensions: [
@@ -121,15 +181,15 @@ export default function Editor({ note, onChange, folders }: Props) {
       Underline,
       Link.configure({ openOnClick: false }),
       SelectableImage.configure({ inline: true, allowBase64: true }),
-      Placeholder.configure({ placeholder: 'Start writing...' }),
+      Placeholder.configure({ placeholder: 'Type \'/\' for commands...' }),
       TaskList,
       TaskItem.configure({ nested: true }),
       CodeBlockLowlight.configure({ lowlight }),
-      Highlight.configure({ multicolor: false }),
+      Highlight.configure({ multicolor: true }),
       TextStyle,
       Color,
     ],
-    content: note.content ? markdownToHtml(note.content) : '',
+    content: parseNoteContent(note.content),
     editorProps: {
       attributes: {
         class: 'tiptap-editor',
@@ -153,53 +213,136 @@ export default function Editor({ note, onChange, folders }: Props) {
         if (file) handleImageFiles([file]);
         return true;
       },
+      handleKeyDown: (_view, event) => {
+        if (showSlashMenu) {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setSlashIndex((i) => Math.min(i + 1, filteredSlashCommands.length - 1));
+            return true;
+          }
+          if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setSlashIndex((i) => Math.max(i - 1, 0));
+            return true;
+          }
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            const cmd = filteredSlashCommands[slashIndex];
+            if (cmd) executeSlashCommand(cmd.id);
+            return true;
+          }
+          if (event.key === 'Escape') {
+            setShowSlashMenu(false);
+            return true;
+          }
+        }
+        return false;
+      },
     },
     onUpdate: ({ editor: ed }) => {
       if (editorMode === 'rich') {
-        const md = htmlToMarkdown(ed.getHTML());
-        onChange(note.id, { content: md });
+        // Store as TipTap JSON to preserve all marks
+        const json = JSON.stringify(ed.getJSON());
+        onChange(note.id, { content: json });
+      }
+
+      // Slash command detection
+      const { state } = ed;
+      const { $from } = state.selection;
+      const textBefore = $from.parent.textContent.slice(0, $from.parentOffset);
+
+      if (textBefore.startsWith('/')) {
+        const filter = textBefore.slice(1).toLowerCase();
+        setSlashFilter(filter);
+        setSlashIndex(0);
+        setShowSlashMenu(true);
+
+        // Get cursor position for menu placement
+        const coords = ed.view.coordsAtPos($from.pos);
+        const editorRect = ed.view.dom.getBoundingClientRect();
+        setSlashPos({
+          top: coords.bottom - editorRect.top + 4,
+          left: coords.left - editorRect.left,
+        });
+      } else {
+        setShowSlashMenu(false);
       }
     },
   }, [note.id]);
 
+  const filteredSlashCommands = useMemo(() => {
+    if (!slashFilter) return SLASH_COMMANDS;
+    return SLASH_COMMANDS.filter((c) =>
+      c.label.toLowerCase().includes(slashFilter) || c.id.includes(slashFilter)
+    );
+  }, [slashFilter]);
+
+  const executeSlashCommand = useCallback((id: string) => {
+    if (!editor) return;
+    setShowSlashMenu(false);
+
+    // Delete the slash command text
+    const { state } = editor;
+    const { $from } = state.selection;
+    const start = $from.pos - $from.parentOffset;
+    editor.chain().focus()
+      .deleteRange({ from: start, to: $from.pos })
+      .run();
+
+    switch (id) {
+      case 'h1': editor.chain().focus().toggleHeading({ level: 1 }).run(); break;
+      case 'h2': editor.chain().focus().toggleHeading({ level: 2 }).run(); break;
+      case 'h3': editor.chain().focus().toggleHeading({ level: 3 }).run(); break;
+      case 'bullet': editor.chain().focus().toggleBulletList().run(); break;
+      case 'numbered': editor.chain().focus().toggleOrderedList().run(); break;
+      case 'todo': editor.chain().focus().toggleTaskList().run(); break;
+      case 'code': editor.chain().focus().toggleCodeBlock().run(); break;
+      case 'quote': editor.chain().focus().toggleBlockquote().run(); break;
+      case 'divider': editor.chain().focus().setHorizontalRule().run(); break;
+      case 'image': fileInputRef.current?.click(); break;
+    }
+  }, [editor]);
+
   // Update editor content when switching notes
   useEffect(() => {
     if (editor && editorMode === 'rich') {
-      const currentHtml = editor.getHTML();
-      const noteHtml = markdownToHtml(note.content);
-      if (currentHtml !== noteHtml) {
-        editor.commands.setContent(noteHtml, { emitUpdate: false });
-      }
+      const parsed = parseNoteContent(note.content);
+      editor.commands.setContent(parsed, { emitUpdate: false });
     }
   }, [note.id, editorMode]);
 
   async function handleImageFiles(files: File[]) {
     for (const file of files) {
-      const arrayBuffer = await file.arrayBuffer();
-      const ext = file.name.split('.').pop() || 'png';
-      const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
       if (window.electronAPI) {
-        // FIX 6: Save as file, reference via shuki:// protocol
+        const arrayBuffer = await file.arrayBuffer();
+        const ext = file.name.split('.').pop() || 'png';
+        const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const savedPath = await window.electronAPI.images.save(arrayBuffer, filename);
         const imgSrc = `shuki://${encodeURIComponent(savedPath)}`;
-        const imgMd = `![${file.name}](${imgSrc})\n`;
-        onChange(note.id, { content: note.content + imgMd });
         if (editor && editorMode === 'rich') {
           editor.chain().focus().setImage({ src: imgSrc, alt: file.name }).run();
         }
       } else {
-        // Browser fallback: use blob URL instead of base64 in content
-        const blob = new Blob([arrayBuffer], { type: file.type });
-        const blobUrl = URL.createObjectURL(blob);
-        const imgMd = `![${file.name}](${blobUrl})\n`;
-        onChange(note.id, { content: note.content + imgMd });
+        // Browser fallback: use base64
+        const base64 = await fileToBase64(file);
         if (editor && editorMode === 'rich') {
-          editor.chain().focus().setImage({ src: blobUrl, alt: file.name }).run();
+          editor.chain().focus().setImage({ src: base64, alt: file.name }).run();
         }
       }
     }
   }
+
+  const handleFilePickerImage = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleImageFiles(Array.from(files));
+    }
+    e.target.value = '';
+  }, [editor, editorMode, note.id]);
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,24 +362,10 @@ export default function Editor({ note, onChange, folders }: Props) {
     const newMode = editorMode === 'rich' ? 'markdown' : 'rich';
     setEditorMode(newMode);
     if (newMode === 'rich' && editor) {
-      editor.commands.setContent(markdownToHtml(note.content), { emitUpdate: false });
+      const parsed = parseNoteContent(note.content);
+      editor.commands.setContent(parsed, { emitUpdate: false });
     }
   }, [editorMode, setEditorMode, editor, note.content]);
-
-  const insertLink = useCallback(() => {
-    if (!editor) return;
-    const url = prompt('Enter URL:');
-    if (url) {
-      editor.chain().focus().setLink({ href: url }).run();
-    }
-  }, [editor]);
-
-  const insertImage = useCallback(() => {
-    const url = prompt('Enter image URL:');
-    if (url && editor) {
-      editor.chain().focus().setImage({ src: url }).run();
-    }
-  }, [editor]);
 
   // Close color picker on outside click
   useEffect(() => {
@@ -252,160 +381,192 @@ export default function Editor({ note, onChange, folders }: Props) {
 
   const currentTextColor = editor?.getAttributes('textStyle')?.color || null;
 
-  const syncDot = note.synced
-    ? '#22c55e'
-    : serverStatus.connected
-    ? '#f59e0b'
-    : '#ef4444';
+  /** Generate markdown from current content for display in markdown mode */
+  const markdownContent = useMemo(() => {
+    if (!isJsonContent(note.content)) return note.content;
+    // Generate markdown from the editor HTML if available
+    if (editor) {
+      return htmlToMarkdown(editor.getHTML());
+    }
+    return note.content;
+  }, [note.content, editor, editorMode]);
 
-  const syncLabel = syncState === 'auth_error'
-    ? 'Auth Error'
-    : note.synced
-    ? 'Saved & synced'
-    : syncState === 'syncing'
-    ? 'Syncing...'
-    : syncState === 'pending'
-    ? 'Pending sync'
-    : 'Offline \u2014 saved locally';
-
-  const syncDotOverride = syncState === 'auth_error' ? '#ef4444' : syncDot;
+  // Breadcrumb text
+  const breadcrumb = folder ? `${folder.name} / ${note.title || 'Untitled'}` : note.title || 'Untitled';
 
   return (
-    <div className="flex flex-col h-full fade-in">
-      {/* Breadcrumb */}
-      {folder && (
-        <div className="px-6 pt-2 text-xs flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-          <span>{folder.name}</span>
-          <span>/</span>
-        </div>
-      )}
+    <div className="flex flex-col h-full fade-in" style={{ backgroundColor: 'var(--bg)' }}>
+      {/* Hidden file input for image picker */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleFileInputChange}
+      />
 
-      {/* Title */}
-      <div className="px-6 pt-3 pb-2" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <input
-          type="text"
-          value={note.title}
-          onChange={handleTitleChange}
-          className="w-full text-2xl font-display font-bold bg-transparent outline-none border-b border-transparent focus:border-current"
-          style={{ color: 'var(--text-primary)', borderColor: 'transparent', lineHeight: '1.4' }}
-          onFocus={(e) => (e.target.style.borderColor = 'var(--border)')}
-          onBlur={(e) => (e.target.style.borderColor = 'transparent')}
-          placeholder="Note title..."
-        />
+      {/* Breadcrumb title bar */}
+      <div
+        className="px-6 py-2 text-xs flex items-center gap-1"
+        style={{
+          color: 'var(--text-muted)',
+          borderBottom: '1px solid var(--border)',
+          WebkitAppRegion: 'drag',
+        } as React.CSSProperties}
+      >
+        <span>{breadcrumb}</span>
       </div>
 
-      {/* Toolbar */}
-      {editorMode === 'rich' && editor && (
-        <div
-          className="flex items-center gap-0.5 px-4 py-1 border-b overflow-x-auto"
-          style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
-        >
-          <ToolBtn active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold">B</ToolBtn>
-          <ToolBtn active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></ToolBtn>
-          <ToolBtn active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline"><u>U</u></ToolBtn>
-          <ToolBtn active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough"><s>S</s></ToolBtn>
-          <Sep />
-          <ToolBtn active={editor.isActive('heading', { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title="Heading 1">H1</ToolBtn>
-          <ToolBtn active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading 2">H2</ToolBtn>
-          <ToolBtn active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title="Heading 3">H3</ToolBtn>
-          <Sep />
-          <ToolBtn active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet list">&#8226;</ToolBtn>
-          <ToolBtn active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Numbered list">1.</ToolBtn>
-          <ToolBtn active={editor.isActive('taskList')} onClick={() => editor.chain().focus().toggleTaskList().run()} title="Task list">&#9745;</ToolBtn>
-          <Sep />
-          <ToolBtn active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Blockquote">&#8220;</ToolBtn>
-          <ToolBtn active={editor.isActive('codeBlock')} onClick={() => editor.chain().focus().toggleCodeBlock().run()} title="Code block">&lt;/&gt;</ToolBtn>
-          <ToolBtn active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()} title="Highlight">{'\uD83D\uDD8D'}</ToolBtn>
-          <Sep />
-          <ToolBtn
-            active={editor.isActive('link')}
-            onClick={() => {
-              if (editor.isActive('link')) {
-                editor.chain().focus().unsetLink().run();
-              } else {
-                const url = prompt('Enter URL:');
-                if (url) editor.chain().focus().setLink({ href: url }).run();
-              }
+      {/* Centered content column */}
+      <div className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--bg)' }}>
+        <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 24px 80px' }}>
+          {/* Large page title */}
+          <input
+            type="text"
+            value={note.title}
+            onChange={handleTitleChange}
+            className="w-full bg-transparent outline-none border-none font-display"
+            style={{
+              color: 'var(--text)',
+              fontSize: '2.5rem',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              marginBottom: '8px',
             }}
-            title={editor.isActive('link') ? 'Remove link' : 'Insert link'}
-          >{'\uD83D\uDD17'}</ToolBtn>
-          <ToolBtn active={false} onClick={insertImage} title="Insert image">{'\uD83D\uDCF7'}</ToolBtn>
-          <ToolBtn active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">{'\u2015'}</ToolBtn>
-          <Sep />
-          <div className="relative" ref={colorPickerRef}>
-            <button
-              onClick={() => setShowColorPicker(!showColorPicker)}
-              title="Text color"
-              className="w-7 h-7 flex flex-col items-center justify-center rounded text-xs font-bold transition-all"
-              style={{
-                backgroundColor: showColorPicker ? 'var(--accent-primary)' : 'transparent',
-                color: showColorPicker ? '#fff' : 'var(--text-secondary)',
-              }}
+            placeholder="Untitled"
+          />
+
+          {/* Minimal toolbar */}
+          {editorMode === 'rich' && editor && (
+            <div
+              className="flex items-center gap-0.5 py-2 mb-4"
+              style={{ borderBottom: '1px solid var(--border)' }}
             >
-              <span>A</span>
-              <span className="w-4 h-1 rounded-sm mt-px" style={{ backgroundColor: currentTextColor || 'var(--text-primary)' }} />
-            </button>
-            {showColorPicker && (
-              <div
-                className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 p-2 rounded-xl shadow-lg z-50"
-                style={{
-                  backgroundColor: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  boxShadow: 'var(--shadow)',
+              <ToolBtn active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold">B</ToolBtn>
+              <ToolBtn active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></ToolBtn>
+              <ToolBtn active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline"><u>U</u></ToolBtn>
+              <ToolBtn active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough"><s>S</s></ToolBtn>
+              <Sep />
+              <ToolBtn active={editor.isActive('heading', { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title="Heading 1">H1</ToolBtn>
+              <ToolBtn active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading 2">H2</ToolBtn>
+              <ToolBtn active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title="Heading 3">H3</ToolBtn>
+              <Sep />
+              <ToolBtn active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet list">&#8226;</ToolBtn>
+              <ToolBtn active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Numbered list">1.</ToolBtn>
+              <ToolBtn active={editor.isActive('taskList')} onClick={() => editor.chain().focus().toggleTaskList().run()} title="Task list">&#9745;</ToolBtn>
+              <Sep />
+              <ToolBtn active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Blockquote">&#8220;</ToolBtn>
+              <ToolBtn active={editor.isActive('codeBlock')} onClick={() => editor.chain().focus().toggleCodeBlock().run()} title="Code block">&lt;/&gt;</ToolBtn>
+              <ToolBtn active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()} title="Highlight">{'\uD83D\uDD8D'}</ToolBtn>
+              <Sep />
+              <ToolBtn
+                active={editor.isActive('link')}
+                onClick={() => {
+                  if (editor.isActive('link')) {
+                    editor.chain().focus().unsetLink().run();
+                  } else {
+                    const url = prompt('Enter URL:');
+                    if (url) editor.chain().focus().setLink({ href: url }).run();
+                  }
                 }}
-              >
-                <div className="grid grid-cols-7 gap-1 mb-1.5" style={{ width: '182px' }}>
-                  {COLOR_PALETTE.map((c) => (
-                    <button
-                      key={c.hex}
-                      title={c.name}
-                      className="w-6 h-6 rounded-md transition-all hover:scale-110"
-                      style={{
-                        backgroundColor: c.hex,
-                        border: c.hex === '#FFFFFF' ? '1px solid var(--border)' : '1px solid transparent',
-                        outline: currentTextColor === c.hex ? '2px solid var(--accent-primary)' : 'none',
-                        outlineOffset: '1px',
-                      }}
-                      onClick={() => {
-                        editor.chain().focus().setColor(c.hex).run();
-                        setShowColorPicker(false);
-                      }}
-                    />
-                  ))}
-                </div>
+                title={editor.isActive('link') ? 'Remove link' : 'Insert link'}
+              >{'\uD83D\uDD17'}</ToolBtn>
+              <ToolBtn active={false} onClick={handleFilePickerImage} title="Insert image">{'\uD83D\uDCF7'}</ToolBtn>
+              <ToolBtn active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">{'\u2015'}</ToolBtn>
+              <Sep />
+              <div className="relative" ref={colorPickerRef}>
                 <button
-                  className="w-full text-xs py-1 rounded-md transition-all hover:opacity-80"
-                  style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}
-                  onClick={() => {
-                    editor.chain().focus().unsetColor().run();
-                    setShowColorPicker(false);
+                  onClick={() => setShowColorPicker(!showColorPicker)}
+                  title="Text color"
+                  className="w-7 h-7 flex flex-col items-center justify-center rounded text-xs font-bold transition-all"
+                  style={{
+                    backgroundColor: showColorPicker ? 'var(--accent)' : 'transparent',
+                    color: showColorPicker ? '#fff' : 'var(--text-muted)',
                   }}
                 >
-                  Remove color
+                  <span>A</span>
+                  <span className="w-4 h-1 rounded-sm mt-px" style={{ backgroundColor: currentTextColor || 'var(--text)' }} />
                 </button>
+                {showColorPicker && (
+                  <div
+                    className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 p-2 rounded-lg shadow-lg z-50"
+                    style={{
+                      backgroundColor: 'var(--bg)',
+                      border: '1px solid var(--border)',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                    }}
+                  >
+                    <div className="grid grid-cols-7 gap-1 mb-1.5" style={{ width: '182px' }}>
+                      {COLOR_PALETTE.map((c) => (
+                        <button
+                          key={c.hex}
+                          title={c.name}
+                          className="w-6 h-6 rounded-md transition-all hover:scale-110"
+                          style={{
+                            backgroundColor: c.hex,
+                            border: c.hex === '#FFFFFF' ? '1px solid var(--border)' : '1px solid transparent',
+                            outline: currentTextColor === c.hex ? '2px solid var(--accent)' : 'none',
+                            outlineOffset: '1px',
+                          }}
+                          onClick={() => {
+                            editor.chain().focus().setColor(c.hex).run();
+                            setShowColorPicker(false);
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      className="w-full text-xs py-1 rounded-md transition-all hover:opacity-80"
+                      style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-sidebar)' }}
+                      onClick={() => {
+                        editor.chain().focus().unsetColor().run();
+                        setShowColorPicker(false);
+                      }}
+                    >
+                      Remove color
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="flex-1" />
-          <button
-            onClick={toggleMode}
-            className="px-2 py-1 rounded text-xs font-mono transition-all hover:opacity-80"
-            style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
-            title="Switch to Markdown"
-          >
-            MD
-          </button>
-        </div>
-      )}
+              <div className="flex-1" />
+              <button
+                onClick={toggleMode}
+                className="px-2 py-1 rounded text-xs font-mono transition-all hover:opacity-80"
+                style={{ color: 'var(--text-muted)' }}
+                title="Switch to Markdown"
+              >
+                MD
+              </button>
+            </div>
+          )}
 
-      {/* Editor area */}
-      <div className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="max-w-3xl mx-auto px-6 py-4" style={{ fontSize: settings.fontSize, lineHeight: '1.8' }}>
+          {/* Editor body */}
           {editorMode === 'rich' ? (
-            <EditorContent editor={editor} />
+            <div className="relative">
+              <EditorContent editor={editor} />
+              {/* Slash command menu */}
+              {showSlashMenu && slashPos && filteredSlashCommands.length > 0 && (
+                <div
+                  className="slash-menu"
+                  style={{ top: slashPos.top, left: slashPos.left }}
+                >
+                  {filteredSlashCommands.map((cmd, i) => (
+                    <div
+                      key={cmd.id}
+                      className={`slash-menu-item ${i === slashIndex ? 'active' : ''}`}
+                      onClick={() => executeSlashCommand(cmd.id)}
+                      onMouseEnter={() => setSlashIndex(i)}
+                    >
+                      <span className="slash-icon">{cmd.icon}</span>
+                      <span className="slash-label">{cmd.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <MarkdownView
-              note={note}
+              content={markdownContent}
               onContentChange={handleMarkdownChange}
               onToggleMode={toggleMode}
               fontSize={settings.fontSize}
@@ -414,30 +575,24 @@ export default function Editor({ note, onChange, folders }: Props) {
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer — word count shown only on hover */}
       <div
-        className="flex items-center justify-between px-6 py-2 text-xs border-t"
+        className="px-6 py-1.5 text-xs transition-opacity"
         style={{
-          borderColor: 'var(--border)',
-          color: 'var(--text-secondary)',
-          backgroundColor: 'var(--bg-secondary)',
+          color: 'var(--text-muted)',
+          opacity: hoveringFooter ? 1 : 0,
         }}
+        onMouseEnter={() => setHoveringFooter(true)}
+        onMouseLeave={() => setHoveringFooter(false)}
       >
-        <div className="flex items-center gap-4">
-          <span>{wordCount} words</span>
-          <span>{charCount} characters</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: syncDotOverride }} />
-          <span>{syncLabel}</span>
-        </div>
+        {wordCount} words &middot; {charCount} characters
       </div>
     </div>
   );
 }
 
-function MarkdownView({ note, onContentChange, onToggleMode, fontSize }: {
-  note: Note;
+function MarkdownView({ content, onContentChange, onToggleMode, fontSize }: {
+  content: string;
   onContentChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onToggleMode: () => void;
   fontSize: number;
@@ -446,13 +601,12 @@ function MarkdownView({ note, onContentChange, onToggleMode, fontSize }: {
 
   const handleCopyMarkdown = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(note.content);
+      await navigator.clipboard.writeText(content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for older browsers
       const textarea = document.createElement('textarea');
-      textarea.value = note.content;
+      textarea.value = content;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
@@ -460,7 +614,7 @@ function MarkdownView({ note, onContentChange, onToggleMode, fontSize }: {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
-  }, [note.content]);
+  }, [content]);
 
   return (
     <div className="relative">
@@ -469,8 +623,8 @@ function MarkdownView({ note, onContentChange, onToggleMode, fontSize }: {
           onClick={handleCopyMarkdown}
           className="px-3 py-1 rounded text-xs font-medium transition-all hover:opacity-80"
           style={{
-            backgroundColor: copied ? '#22c55e' : 'var(--bg-card)',
-            color: copied ? '#fff' : 'var(--text-primary)',
+            backgroundColor: copied ? '#22c55e' : 'transparent',
+            color: copied ? '#fff' : 'var(--text-muted)',
             border: '1px solid var(--border)',
           }}
           title="Copy raw Markdown to clipboard"
@@ -480,18 +634,19 @@ function MarkdownView({ note, onContentChange, onToggleMode, fontSize }: {
         <button
           onClick={onToggleMode}
           className="px-2 py-1 rounded text-xs font-mono transition-all hover:opacity-80"
-          style={{ backgroundColor: 'var(--accent-primary)', color: '#fff' }}
+          style={{ backgroundColor: 'var(--accent)', color: '#fff' }}
           title="Switch to Rich Text"
         >
           WYSIWYG
         </button>
       </div>
       <textarea
-        value={note.content}
+        value={content}
         onChange={onContentChange}
         className="w-full min-h-[60vh] bg-transparent outline-none resize-none font-mono"
-        style={{ color: 'var(--text-primary)', fontSize, lineHeight: '1.8' }}
+        style={{ color: 'var(--text)', fontSize, lineHeight: '1.8' }}
         placeholder="Write in Markdown..."
+        readOnly
       />
     </div>
   );
@@ -504,8 +659,8 @@ function ToolBtn({ active, onClick, title, children }: { active: boolean; onClic
       title={title}
       className="w-7 h-7 flex items-center justify-center rounded text-xs font-medium transition-all"
       style={{
-        backgroundColor: active ? 'var(--accent-primary)' : 'transparent',
-        color: active ? '#fff' : 'var(--text-secondary)',
+        backgroundColor: active ? 'var(--accent)' : 'transparent',
+        color: active ? '#fff' : 'var(--text-muted)',
       }}
     >
       {children}
@@ -519,35 +674,23 @@ function Sep() {
 
 function markdownToHtml(md: string): string {
   let html = md;
-  // Headings
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-  // Bold/Italic/Underline/Strike
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
   html = html.replace(/~~(.+?)~~/g, '<s>$1</s>');
-  // Code blocks
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
-  // Inline code
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Images
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />');
-  // Links
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  // Blockquotes
   html = html.replace(/^> (.+)$/gm, '<blockquote><p>$1</p></blockquote>');
-  // Task lists
   html = html.replace(/^- \[x\] (.+)$/gm, '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>$1</p></li></ul>');
   html = html.replace(/^- \[ \] (.+)$/gm, '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>$1</p></li></ul>');
-  // Unordered lists
   html = html.replace(/^[*-] (.+)$/gm, '<ul><li><p>$1</p></li></ul>');
-  // Ordered lists
   html = html.replace(/^\d+\. (.+)$/gm, '<ol><li><p>$1</p></li></ol>');
-  // Horizontal rule
   html = html.replace(/^---$/gm, '<hr />');
-  // Paragraphs (lines that are not already wrapped)
   const lines = html.split('\n');
   const result: string[] = [];
   for (const line of lines) {
@@ -564,9 +707,6 @@ function markdownToHtml(md: string): string {
 
 function htmlToMarkdown(html: string): string {
   let md = html;
-  // Preserve color spans as HTML in markdown (they'll be converted back)
-  // Keep <span style="color: ...">...</span> and <mark>...</mark> as-is for roundtrip
-  // Remove wrapping tags
   md = md.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n');
   md = md.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n');
   md = md.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n');
@@ -585,22 +725,18 @@ function htmlToMarkdown(html: string): string {
   md = md.replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, '```\n$1```\n');
   md = md.replace(/<code>(.*?)<\/code>/gi, '`$1`');
   md = md.replace(/<hr\s*\/?>/gi, '---\n');
-  // Task items
   md = md.replace(/<li[^>]*data-checked="true"[^>]*><p>(.*?)<\/p><\/li>/gi, '- [x] $1');
   md = md.replace(/<li[^>]*data-checked="false"[^>]*><p>(.*?)<\/p><\/li>/gi, '- [ ] $1');
-  // List items
   md = md.replace(/<li[^>]*><p>(.*?)<\/p><\/li>/gi, '- $1');
   md = md.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1');
-  // Paragraphs
   md = md.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n');
-  // Clean up remaining tags
+  md = md.replace(/<mark[^>]*>(.*?)<\/mark>/gi, '$1');
+  md = md.replace(/<span[^>]*>(.*?)<\/span>/gi, '$1');
   md = md.replace(/<\/?[^>]+(>|$)/g, '');
-  // Clean up entities
   md = md.replace(/&amp;/g, '&');
   md = md.replace(/&lt;/g, '<');
   md = md.replace(/&gt;/g, '>');
   md = md.replace(/&nbsp;/g, ' ');
-  // Clean up extra newlines
   md = md.replace(/\n{3,}/g, '\n\n');
   return md.trim();
 }

@@ -64,56 +64,223 @@ const wsState = setupWebSocket(io, API_KEY, db);
 
 // Browser landing page
 app.get('/', (_req, res) => {
-  res.set('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");
+  res.set('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline' 'self'; font-src https://fonts.googleapis.com https://fonts.gstatic.com; connect-src 'self'");
   res.type('html').send(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SHUKI - Server is online</title>
+<title>SHUKI — Server</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@600;700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: system-ui, -apple-system, sans-serif;
-    background: #F7F3EE; min-height: 100vh;
-    display: flex; align-items: center; justify-content: center; padding: 24px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #F7F3EE;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: #2C2416;
   }
   .card {
-    background: #FDFAF7; max-width: 480px; width: 100%; border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(80,50,20,0.10); padding: 40px 32px 32px;
+    background: #FFFFFF;
+    max-width: 480px;
+    width: 100%;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(80,50,20,0.08);
+    padding: 40px;
   }
-  h1 { color: #C17F3A; font-size: 1.5rem; margin-bottom: 4px; }
-  .version { color: #7A6A55; font-size: 0.85rem; margin-bottom: 24px; }
-  .status { font-size: 1.1rem; margin-bottom: 28px; padding: 12px 16px; border-radius: 10px; color: #166534; background: #dcfce7; }
-  h2 { color: #C17F3A; font-size: 1.1rem; margin-bottom: 16px; }
-  .steps { list-style: none; counter-reset: step; }
-  .steps li { counter-increment: step; margin-bottom: 14px; padding-left: 32px; position: relative; line-height: 1.5; font-size: 0.95rem; color: #2C2416; }
-  .steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 22px; height: 22px; background: #C17F3A; color: #fff; font-weight: 700; font-size: 0.75rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-  .url-block { background: #EDE8E0; border-radius: 8px; padding: 10px 14px; font-family: monospace; font-size: 0.85rem; margin: 8px 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; word-break: break-all; }
-  .url-block input { flex: 1; background: none; border: none; font-family: monospace; font-size: 0.85rem; color: #2C2416; outline: none; }
-  .url-block button { flex-shrink: 0; background: #C17F3A; border: none; border-radius: 6px; padding: 6px 12px; font-size: 0.75rem; font-weight: 600; cursor: pointer; color: #fff; }
+  .header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .wordmark {
+    font-family: 'Lora', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #C17F3A;
+  }
+  .version-pill {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #9B8E82;
+    background: #F7F3EE;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #166534;
+    background: #dcfce7;
+    padding: 6px 14px;
+    border-radius: 20px;
+    margin-bottom: 28px;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    display: inline-block;
+  }
+  h2 {
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2C2416;
+    margin-bottom: 16px;
+    margin-top: 28px;
+  }
+  .steps {
+    list-style: none;
+    counter-reset: step;
+  }
+  .steps li {
+    counter-increment: step;
+    margin-bottom: 14px;
+    padding-left: 36px;
+    position: relative;
+    line-height: 1.6;
+    font-size: 0.9rem;
+    color: #2C2416;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 1px;
+    width: 24px;
+    height: 24px;
+    background: #C17F3A;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.75rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .url-block {
+    background: #F7F3EE;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    word-break: break-all;
+  }
+  .url-block input {
+    flex: 1;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: inherit;
+    color: #2C2416;
+    outline: none;
+  }
+  .url-block button {
+    flex-shrink: 0;
+    background: #C17F3A;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    transition: opacity 0.15s;
+  }
   .url-block button:hover { opacity: 0.85; }
-  footer { text-align: center; margin-top: 28px; color: #7A6A55; font-size: 0.75rem; letter-spacing: 0.05em; }
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .info-item {
+    background: #F7F3EE;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .info-item .label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #9B8E82;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .info-item .value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2C2416;
+  }
+  footer {
+    text-align: center;
+    margin-top: 32px;
+    color: #9B8E82;
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+  }
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>SHUKI</h1>
-  <div class="version">v1.0.0</div>
-  <div class="status">✅ Server is online</div>
-  <h2>Connect with the Shuki App</h2>
+  <div class="header">
+    <span class="wordmark">SHUKI</span>
+    <span class="version-pill">v1.0.0</span>
+  </div>
+  <div class="status-pill"><span class="status-dot"></span> Server online</div>
+
+  <h2>Connect the app</h2>
   <ol class="steps">
-    <li>Open Shuki</li>
+    <li>Open the SHUKI desktop app</li>
     <li>Enter this server URL:
       <div class="url-block">
         <input type="text" id="url" readonly />
         <button id="copy-btn">Copy</button>
       </div>
     </li>
-    <li>Enter your API Key <span style="color:#7A6A55;font-size:0.8rem">(found in Docker logs)</span></li>
+    <li>Enter your API Key <span style="color:#9B8E82;font-size:0.8rem">(found in Docker logs)</span></li>
     <li>Click <strong>Connect</strong></li>
   </ol>
-  <footer>SHUKI - Self-hosted notes server</footer>
+
+  <h2>Server info</h2>
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="label">Uptime</div>
+      <div class="value" id="uptime">—</div>
+    </div>
+    <div class="info-item">
+      <div class="label">Free Storage</div>
+      <div class="value" id="storage">—</div>
+    </div>
+    <div class="info-item">
+      <div class="label">Connected Clients</div>
+      <div class="value" id="clients">—</div>
+    </div>
+    <div class="info-item">
+      <div class="label">Version</div>
+      <div class="value" id="version">—</div>
+    </div>
+  </div>
+
+  <footer>SHUKI — Self-hosted notes server</footer>
 </div>
 <script>
   document.getElementById('url').value = window.location.origin;
@@ -123,6 +290,38 @@ app.get('/', (_req, res) => {
     var btn = this;
     setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
   });
+
+  function formatUptime(seconds) {
+    var d = Math.floor(seconds / 86400);
+    var h = Math.floor((seconds % 86400) / 3600);
+    var m = Math.floor((seconds % 3600) / 60);
+    if (d > 0) return d + 'd ' + h + 'h';
+    if (h > 0) return h + 'h ' + m + 'm';
+    return m + 'm';
+  }
+
+  function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    var k = 1024;
+    var sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  fetch('/api/health')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('version').textContent = data.version || '1.0.0';
+      document.getElementById('clients').textContent = data.clients || '0';
+      if (data.storage && data.storage.free) {
+        document.getElementById('storage').textContent = formatBytes(data.storage.free);
+      }
+      // Estimate uptime from process if available
+      document.getElementById('uptime').textContent = 'Online';
+    })
+    .catch(function() {
+      document.getElementById('uptime').textContent = 'Error';
+    });
 </script>
 </body>
 </html>`);

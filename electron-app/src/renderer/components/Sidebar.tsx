@@ -98,10 +98,10 @@ export default function Sidebar({
     setDragOverFolderId(null);
   }, []);
 
-  // Notes not in any folder
   const unfolderedNotes = filteredNotes.filter((n) => !n.folderId);
   const sortedFolders = [...folders].sort((a, b) => a.sortOrder - b.sortOrder);
 
+  // Sync status
   const syncDotColor =
     syncState === 'synced' ? '#22c55e'
     : syncState === 'syncing' ? '#f59e0b'
@@ -109,66 +109,64 @@ export default function Sidebar({
     : syncState === 'auth_error' ? '#ef4444'
     : '#ef4444';
 
+  const syncEmoji =
+    syncState === 'synced' ? '\uD83D\uDFE2'
+    : syncState === 'syncing' ? '\uD83D\uDFE1'
+    : syncState === 'pending' ? '\uD83D\uDFE0'
+    : '\uD83D\uDD34';
+
   const syncLabel =
     syncState === 'synced' ? (serverStatus.lastSync ? `Last synced ${formatTimeAgo(serverStatus.lastSync)}` : 'Synced')
     : syncState === 'syncing' ? 'Syncing...'
     : syncState === 'pending' ? `Pending (${pendingChanges} changes)`
-    : syncState === 'auth_error' ? 'Invalid API Key \u2014 tap to fix'
+    : syncState === 'auth_error' ? 'Auth Error \u2014 tap to fix'
     : 'Offline';
 
   return (
     <aside
-      className="flex flex-col h-full border-r select-none"
+      className="flex flex-col h-full select-none"
       style={{
-        width: 260,
+        width: 240,
         backgroundColor: 'var(--bg-sidebar)',
-        borderColor: 'var(--border)',
+        borderRight: '1px solid var(--border)',
       }}
     >
-      {/* Header */}
-      <div className="p-4 flex items-center gap-3" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
-          style={{
-            background: 'linear-gradient(135deg, #D4943F 0%, #C17F3A 50%, #A86B2E 100%)',
-            color: '#fff',
-            boxShadow: '0 2px 6px rgba(193,127,58,0.35)',
-            fontFamily: 'Georgia, "Times New Roman", serif',
-            fontSize: '16px',
-            letterSpacing: '-0.5px',
-          }}>
-          S
-        </div>
-        <span className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
+      {/* SHUKI wordmark */}
+      <div className="px-4 pt-4 pb-2" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+        <span
+          className="font-display text-base font-semibold tracking-wide"
+          style={{ color: 'var(--text-muted)' }}
+        >
           SHUKI
         </span>
       </div>
 
-      {/* Search */}
-      <div className="px-3 mb-2">
-        <input
-          id="search-input"
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search notes..."
-          className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border)',
-          }}
-        />
-      </div>
-
-      {/* Action buttons */}
-      <div className="px-3 mb-2 flex gap-2">
-        <button
-          onClick={onNewNote}
-          className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-          style={{ backgroundColor: 'var(--accent-primary)', color: '#fff' }}
-        >
-          + Note
-        </button>
+      {/* Search + New folder button */}
+      <div className="px-3 mb-1 flex items-center gap-1">
+        <div className="flex-1 relative">
+          <svg
+            className="absolute left-2.5 top-1/2 -translate-y-1/2"
+            width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            id="search-input"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search..."
+            className="w-full pl-8 pr-3 py-1.5 rounded-md text-sm outline-none"
+            style={{
+              backgroundColor: 'transparent',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+            }}
+          />
+        </div>
         <button
           onClick={() => {
             const newId = onNewFolder();
@@ -176,42 +174,46 @@ export default function Sidebar({
               setTimeout(() => startRename(newId, 'New Folder'), 50);
             }
           }}
-          className="py-2 px-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-          style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+          className="w-7 h-7 flex items-center justify-center rounded-md text-sm transition-all hover:opacity-80"
+          style={{ color: 'var(--text-muted)' }}
           title="New Folder"
         >
-          +{'\u{1F4C1}'}
-        </button>
-        <button
-          onClick={() => setShowGallery(true)}
-          className="py-2 px-3 rounded-xl text-sm transition-all hover:opacity-90"
-          style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-          title="Image Gallery"
-        >
-          {'\u{1F5BC}'}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            <line x1="12" y1="11" x2="12" y2="17" />
+            <line x1="9" y1="14" x2="15" y2="14" />
+          </svg>
         </button>
       </div>
 
-      {/* "All Notes" view */}
-      <div className="px-3 mb-1">
+      {/* + New page button */}
+      <div className="px-3 mb-2">
         <button
-          onClick={() => setActiveFolderId(null)}
-          className="w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all"
-          style={{
-            backgroundColor: activeFolderId === null ? 'var(--accent-soft)' : 'transparent',
-            color: 'var(--text-primary)',
-            borderLeft: activeFolderId === null ? '3px solid var(--accent-primary)' : '3px solid transparent',
-          }}
-          onDragOver={(e) => handleDragOver(e, null)}
-          onDrop={(e) => handleDrop(e, null)}
-          onDragLeave={handleDragLeave}
+          onClick={onNewNote}
+          className="w-full text-left px-2 py-1 text-sm transition-all hover:opacity-80"
+          style={{ color: 'var(--text-muted)' }}
         >
-          All Notes ({notes.length})
+          + New page
         </button>
       </div>
 
       {/* Folder tree + Notes */}
       <div className="flex-1 overflow-y-auto px-2">
+        {/* All Notes */}
+        <button
+          onClick={() => setActiveFolderId(null)}
+          className="w-full text-left px-2 py-1 rounded-md text-sm transition-all mb-0.5"
+          style={{
+            backgroundColor: activeFolderId === null ? 'var(--accent-soft)' : 'transparent',
+            color: 'var(--text)',
+          }}
+          onDragOver={(e) => handleDragOver(e, null)}
+          onDrop={(e) => handleDrop(e, null)}
+          onDragLeave={handleDragLeave}
+        >
+          All Notes
+        </button>
+
         {/* Folders */}
         {sortedFolders.map((folder) => {
           const isCollapsed = collapsedFolders.has(folder.id);
@@ -222,17 +224,15 @@ export default function Sidebar({
           return (
             <div key={folder.id}>
               <div
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg cursor-pointer transition-all group"
+                className="flex items-center gap-1 px-2 py-1 rounded-md cursor-pointer transition-all group mb-0.5"
                 style={{
                   backgroundColor: isDragOver ? 'var(--accent-soft)' : isActive ? 'var(--accent-soft)' : 'transparent',
-                  borderLeft: isActive ? '3px solid var(--accent-primary)' : '3px solid transparent',
                 }}
                 onClick={() => {
                   if (activeFolderId === folder.id) {
                     toggleCollapse(folder.id);
                   } else {
                     setActiveFolderId(folder.id);
-                    // Expand folder when selecting it
                     setCollapsedFolders((prev) => {
                       const next = new Set(prev);
                       next.delete(folder.id);
@@ -252,7 +252,7 @@ export default function Sidebar({
                 <svg
                   width="10" height="10" viewBox="0 0 10 10"
                   style={{
-                    color: 'var(--text-secondary)',
+                    color: 'var(--text-muted)',
                     transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
                     transition: 'transform 0.15s ease',
                     flexShrink: 0,
@@ -260,12 +260,11 @@ export default function Sidebar({
                 >
                   <path d="M2 3 L5 6 L8 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <span className="text-sm mr-1">{'\u{1F4C1}'}</span>
                 {renamingFolderId === folder.id ? (
                   <input
                     autoFocus
                     className="flex-1 text-sm bg-transparent outline-none px-1"
-                    style={{ color: 'var(--text-primary)', border: '1px solid var(--accent-primary)', borderRadius: 4 }}
+                    style={{ color: 'var(--text)', border: '1px solid var(--accent)', borderRadius: 4 }}
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
                     onBlur={commitRename}
@@ -273,13 +272,10 @@ export default function Sidebar({
                     onClick={(e) => e.stopPropagation()}
                   />
                 ) : (
-                  <span className="flex-1 text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                  <span className="flex-1 text-sm truncate" style={{ color: 'var(--text)' }}>
                     {folder.name}
                   </span>
                 )}
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  {folderNotes.length}
-                </span>
               </div>
 
               {/* Notes inside folder */}
@@ -312,7 +308,7 @@ export default function Sidebar({
         ))}
 
         {filteredNotes.length === 0 && (
-          <div className="text-center py-8 text-sm font-display italic" style={{ color: 'var(--text-secondary)' }}>
+          <div className="text-center py-8 text-sm italic" style={{ color: 'var(--text-muted)' }}>
             {searchQuery ? 'No notes found' : 'No notes yet'}
           </div>
         )}
@@ -336,28 +332,41 @@ export default function Sidebar({
         />
       )}
 
-      {/* Sync status + Settings */}
-      <div className="p-3 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
+      {/* Bottom: Settings + Sync status */}
+      <div className="px-3 py-2 space-y-1" style={{ borderTop: '1px solid var(--border)' }}>
         <div
           className={`flex items-center gap-2 text-xs ${syncState === 'auth_error' ? 'cursor-pointer hover:opacity-80' : ''}`}
-          style={{ color: syncState === 'auth_error' ? '#ef4444' : 'var(--text-secondary)' }}
+          style={{ color: 'var(--text-muted)' }}
           onClick={() => {
             if (syncState === 'auth_error') {
-              setShowSettings(true);
+              useStore.getState().setShowSettings(true);
               useStore.getState().setSettingsTab('server');
             }
           }}
         >
-          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: syncDotColor }} />
-          <span className="truncate">{syncState === 'auth_error' ? '\uD83D\uDD11 ' : ''}{syncLabel}</span>
+          <span>{syncEmoji}</span>
+          <span className="truncate">
+            {syncState === 'auth_error' ? '\uD83D\uDD11 ' : ''}
+            {syncLabel}
+          </span>
         </div>
-        <button
-          onClick={() => setShowSettings(true)}
-          className="w-full py-2 rounded-xl text-sm transition-all hover:opacity-80 flex items-center justify-center gap-2"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          {'\u2699'} Settings
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="text-xs transition-all hover:opacity-80"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Settings
+          </button>
+          <span style={{ color: 'var(--text-muted)', fontSize: '8px' }}>&middot;</span>
+          <button
+            onClick={() => setShowGallery(true)}
+            className="text-xs transition-all hover:opacity-80"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Gallery
+          </button>
+        </div>
       </div>
     </aside>
   );
@@ -377,29 +386,15 @@ function NoteRow({ note, isActive, indented, onSelect, onContextMenu, onDragStar
       onDragStart={onDragStart}
       onClick={onSelect}
       onContextMenu={onContextMenu}
-      className="group p-2 mb-0.5 rounded-lg cursor-pointer transition-all"
+      className="px-2 py-1 mb-0.5 rounded-md cursor-pointer transition-all"
       style={{
         marginLeft: indented ? 16 : 0,
-        backgroundColor: isActive ? 'var(--bg-card)' : 'transparent',
-        borderLeft: isActive ? '3px solid var(--accent-primary)' : '3px solid transparent',
-        boxShadow: isActive ? 'var(--shadow)' : 'none',
+        backgroundColor: isActive ? 'var(--accent-soft)' : 'transparent',
       }}
     >
-      <div className="flex items-center gap-2">
-        {note.tags.length > 0 && (
-          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--accent-purple)' }} />
-        )}
-        <h3 className="text-sm font-semibold truncate flex-1" style={{ color: 'var(--text-primary)' }}>
-          {note.title || 'Untitled'}
-        </h3>
-        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: note.synced ? '#22c55e' : '#f59e0b' }} />
-      </div>
-      <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
-        {getExcerpt(note.content)}
-      </p>
-      <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
-        {formatDate(note.updatedAt)}
-      </p>
+      <span className="text-sm truncate block" style={{ color: 'var(--text)' }}>
+        {note.title || 'Untitled'}
+      </span>
     </div>
   );
 }
@@ -425,9 +420,9 @@ function ContextMenuPopup({ menu, folders, notes, onClose, onDeleteNote, onDelet
         style={{
           left: menu.x,
           top: menu.y,
-          backgroundColor: 'var(--bg-card)',
+          backgroundColor: 'var(--bg)',
           border: '1px solid var(--border)',
-          boxShadow: 'var(--shadow)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
         }}
       >
         {menu.type === 'folder' ? (
@@ -462,25 +457,11 @@ function CtxItem({ onClick, children, danger }: { onClick: () => void; children:
     <button
       onClick={onClick}
       className="w-full text-left px-3 py-1.5 text-sm hover:opacity-80 transition-all"
-      style={{ color: danger ? '#ef4444' : 'var(--text-primary)' }}
+      style={{ color: danger ? '#ef4444' : 'var(--text)' }}
     >
       {children}
     </button>
   );
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return d.toLocaleDateString();
 }
 
 function formatTimeAgo(iso: string | null): string {
@@ -492,9 +473,4 @@ function formatTimeAgo(iso: string | null): string {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
-}
-
-function getExcerpt(content: string, maxLen = 60): string {
-  const plain = content.replace(/[#*_~`>\[\]()!|-]/g, '').trim();
-  return plain.length > maxLen ? plain.slice(0, maxLen) + '...' : plain;
 }

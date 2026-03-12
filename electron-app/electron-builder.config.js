@@ -25,6 +25,18 @@ module.exports = {
     target: ['nsis', 'zip'],
     icon: 'assets/icon.ico',
   },
+  nsis: {
+    oneClick: false,
+    allowToChangeInstallationDirectory: true,
+    installerIcon: 'assets/icon.ico',
+    uninstallerIcon: 'assets/icon.ico',
+    installerHeaderIcon: 'assets/icon.ico',
+    createDesktopShortcut: true,
+    createStartMenuShortcut: true,
+    shortcutName: 'SHUKI',
+    installerSidebar: 'assets/installer-sidebar.bmp',
+    uninstallerSidebar: 'assets/installer-sidebar.bmp',
+  },
   linux: {
     target: ['AppImage', 'deb'],
     category: 'Office',

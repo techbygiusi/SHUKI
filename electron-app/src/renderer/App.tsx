@@ -570,23 +570,7 @@ export default function App() {
   const activeNote = notes.find((n) => n.id === activeNoteId);
 
   return (
-    <div className="flex flex-col h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      {syncState === 'auth_error' && (
-        <div
-          className="flex items-center justify-between px-4 py-2 text-sm"
-          style={{ backgroundColor: '#fef2f2', color: '#991b1b', borderBottom: '1px solid #fecaca' }}
-        >
-          <span>{'\u26A0\uFE0F'} Sync failed: Invalid API Key {'\u2014'} go to Settings {'\u2192'} Server to fix</span>
-          <button
-            onClick={() => { setShowSettings(true); useStore.getState().setSettingsTab('server'); }}
-            className="px-3 py-1 rounded-lg text-xs font-semibold"
-            style={{ backgroundColor: '#991b1b', color: '#fff' }}
-          >
-            Open Settings
-          </button>
-        </div>
-      )}
-      <div className="flex flex-1 overflow-hidden">
+    <div className="flex h-screen" style={{ backgroundColor: 'var(--bg)' }}>
       <Sidebar
         onNewNote={handleNewNote}
         onNewFolder={handleNewFolder}
@@ -597,6 +581,21 @@ export default function App() {
         onDuplicateNote={handleDuplicateNote}
       />
       <main className="flex-1 flex flex-col overflow-hidden">
+        {syncState === 'auth_error' && (
+          <div
+            className="flex items-center justify-between px-4 py-2 text-sm"
+            style={{ backgroundColor: '#fef2f2', color: '#991b1b', borderBottom: '1px solid #fecaca' }}
+          >
+            <span>Sync failed: Invalid API Key — go to Settings to fix</span>
+            <button
+              onClick={() => { setShowSettings(true); useStore.getState().setSettingsTab('server'); }}
+              className="px-3 py-1 rounded-lg text-xs font-semibold"
+              style={{ backgroundColor: '#991b1b', color: '#fff' }}
+            >
+              Open Settings
+            </button>
+          </div>
+        )}
         {activeNote ? (
           <Editor
             note={activeNote}
@@ -604,23 +603,22 @@ export default function App() {
             folders={folders}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center" style={{ color: 'var(--text-secondary)' }}>
+          <div className="flex-1 flex items-center justify-center">
             <div className="text-center fade-in">
-              <p className="text-lg font-display italic">Select a note or create a new one</p>
-              <p className="text-sm mt-2">Ctrl/Cmd + N to create a new note</p>
+              <p className="text-lg font-display italic" style={{ color: 'var(--text-muted)' }}>Select a note or create a new one</p>
+              <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>Ctrl/Cmd + N to create a new note</p>
             </div>
           </div>
         )}
       </main>
-      </div>
       <Toaster
         position="bottom-right"
         toastOptions={{
           style: {
-            background: 'var(--bg-card)',
-            color: 'var(--text-primary)',
+            background: 'var(--bg)',
+            color: 'var(--text)',
             border: '1px solid var(--border)',
-            borderRadius: '16px',
+            borderRadius: '8px',
           },
         }}
       />
