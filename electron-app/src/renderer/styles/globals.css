@@ -1,47 +1,62 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg: #FFFFFF;
-  --bg-sidebar: #F7F3EE;
-  --text: #2C2416;
-  --text-muted: #9B8E82;
-  --accent: #C17F3A;
-  --border: rgba(0,0,0,0.07);
+  --bg:              #FFFFFF;
+  --bg-sidebar:      #FAFAFA;
+  --bg-hover:        #F5F5F5;
+  --bg-active:       #F0EDE8;
+  --text-primary:    #111827;
+  --text-secondary:  #6B7280;
+  --text-muted:      #9CA3AF;
+  --accent:          #C17F3A;
+  --accent-hover:    #A86B2E;
+  --border:          #E5E7EB;
+  --border-subtle:   #F3F4F6;
+  --shadow-sm:       0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md:       0 4px 16px rgba(0,0,0,0.08);
+  --radius:          10px;
 
-  /* Legacy aliases */
-  --bg-primary: #FFFFFF;
-  --bg-secondary: #F7F3EE;
-  --bg-card: #FFFFFF;
-  --accent-primary: #C17F3A;
+  /* Legacy aliases for backwards compat */
+  --bg-primary: var(--bg);
+  --bg-secondary: var(--bg-sidebar);
+  --bg-card: var(--bg);
+  --accent-primary: var(--accent);
   --accent-soft: rgba(193,127,58,0.08);
-  --accent-purple: #7C5CBF;
-  --text-primary: #2C2416;
-  --text-secondary: #9B8E82;
-  --shadow: 0 1px 3px rgba(0,0,0,0.04);
-  --radius-card: 8px;
-  --radius-button: 6px;
+  --text: var(--text-primary);
+  --shadow: var(--shadow-sm);
+  --radius-card: var(--radius);
+  --radius-button: 8px;
+
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 .dark {
-  --bg: #191919;
-  --bg-sidebar: #1C1C1C;
-  --text: #E8E4DF;
-  --text-muted: #6B6560;
-  --accent: #C17F3A;
-  --border: rgba(255,255,255,0.07);
+  --bg:              #111111;
+  --bg-sidebar:      #171717;
+  --bg-hover:        #1F1F1F;
+  --bg-active:       #262218;
+  --text-primary:    #F9FAFB;
+  --text-secondary:  #9CA3AF;
+  --text-muted:      #6B7280;
+  --accent:          #C17F3A;
+  --accent-hover:    #D4924A;
+  --border:          #262626;
+  --border-subtle:   #1F1F1F;
+  --shadow-sm:       0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md:       0 4px 16px rgba(0,0,0,0.4);
 
-  --bg-primary: #191919;
-  --bg-secondary: #1C1C1C;
-  --bg-card: #202020;
-  --accent-primary: #C17F3A;
+  --bg-primary: var(--bg);
+  --bg-secondary: var(--bg-sidebar);
+  --bg-card: var(--bg);
+  --accent-primary: var(--accent);
   --accent-soft: rgba(193,127,58,0.12);
-  --text-primary: #E8E4DF;
-  --text-secondary: #6B6560;
-  --shadow: 0 1px 3px rgba(0,0,0,0.2);
+  --text: var(--text-primary);
+  --shadow: var(--shadow-sm);
 }
 
 * {
@@ -51,9 +66,9 @@
 }
 
 body {
-  font-family: 'Inter', 'IBM Plex Sans', sans-serif;
+  font-family: var(--font-ui);
   background-color: var(--bg);
-  color: var(--text);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
@@ -80,20 +95,21 @@ body {
 
 /* Font classes */
 .font-display {
-  font-family: 'Lora', serif;
+  font-family: var(--font-ui);
 }
 .font-mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* TipTap editor styles */
 .tiptap-editor {
   outline: none;
   min-height: 60vh;
-  font-family: 'Inter', 'IBM Plex Sans', sans-serif;
-  color: var(--text);
+  font-family: var(--font-ui);
+  color: var(--text-primary);
   line-height: 1.8;
   font-size: 16px;
+  padding: 24px 0 120px;
 }
 
 .tiptap-editor h1,
@@ -102,78 +118,91 @@ body {
 .tiptap-editor h4,
 .tiptap-editor h5,
 .tiptap-editor h6 {
-  font-family: 'Lora', serif;
-  color: var(--text);
-  margin-top: 1.4em;
-  margin-bottom: 0.4em;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
 }
 
-.tiptap-editor h1 { font-size: 1.875rem; font-weight: 700; }
-.tiptap-editor h2 { font-size: 1.5rem; font-weight: 600; }
-.tiptap-editor h3 { font-size: 1.25rem; font-weight: 600; }
+.tiptap-editor h1 { font-size: 1.875rem; font-weight: 700; margin-top: 2rem; margin-bottom: 0.4em; }
+.tiptap-editor h2 { font-size: 1.5rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.4em; }
+.tiptap-editor h3 { font-size: 1.25rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.4em; }
 
 .tiptap-editor p {
   margin-bottom: 0.75em;
 }
 
-.tiptap-editor ul,
-.tiptap-editor ol {
-  padding-left: 1.5em;
+.tiptap-editor ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
   margin-bottom: 0.75em;
+  line-height: 1.8;
+}
+
+.tiptap-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75em;
+  line-height: 1.8;
 }
 
 .tiptap-editor li {
   margin-bottom: 0.25em;
 }
 
+.tiptap-editor li p {
+  margin-bottom: 0;
+}
+
 .tiptap-editor blockquote {
   border-left: 3px solid var(--accent);
-  padding-left: 1em;
+  padding-left: 16px;
   margin: 1em 0;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
 .tiptap-editor pre {
-  background-color: var(--bg-sidebar);
+  background-color: var(--bg-hover);
   border-radius: 8px;
-  padding: 16px 20px;
+  padding: 16px;
   margin: 1em 0;
   overflow-x: auto;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.875em;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  border: 1px solid var(--border);
 }
 
 .tiptap-editor code {
-  font-family: 'JetBrains Mono', monospace;
-  background-color: var(--bg-sidebar);
+  font-family: var(--font-mono);
+  background-color: var(--bg-hover);
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: 0.875em;
+  font-size: 0.875rem;
 }
 
 .tiptap-editor pre code {
   background: none;
   padding: 0;
+  border: none;
 }
 
 .tiptap-editor a {
   color: var(--accent);
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .tiptap-editor img {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
-  margin: 1em 0;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  border-radius: 10px;
+  margin: 16px 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .tiptap-editor hr {
   border: none;
-  border-top: 1px solid var(--border);
-  margin: 2em 0;
+  border-top: 2px solid var(--border);
+  margin: 2rem 0;
 }
 
 .tiptap-editor mark {
@@ -264,7 +293,7 @@ body {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  box-shadow: var(--shadow-md);
   padding: 4px;
   min-width: 200px;
   max-height: 300px;
@@ -276,16 +305,16 @@ body {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  color: var(--text);
+  color: var(--text-primary);
   transition: background 0.1s;
 }
 
 .slash-menu-item:hover,
 .slash-menu-item.active {
-  background: var(--accent-soft);
+  background: var(--bg-hover);
 }
 
 .slash-menu-item .slash-icon {
@@ -297,4 +326,75 @@ body {
 
 .slash-menu-item .slash-label {
   font-weight: 500;
+}
+
+/* Toolbar button styles */
+.toolbar-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toolbar-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.toolbar-btn.active {
+  background: var(--bg-active);
+  color: var(--accent);
+}
+
+/* Link popover */
+.link-popover {
+  position: absolute;
+  z-index: 100;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.link-popover input {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  outline: none;
+  width: 220px;
+  font-family: var(--font-ui);
+}
+
+.link-popover input:focus {
+  border-color: var(--accent);
+}
+
+.link-popover button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s;
+  font-family: var(--font-ui);
+}
+
+.link-popover button:hover {
+  opacity: 0.85;
 }

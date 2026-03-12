@@ -73,26 +73,26 @@ app.get('/', (_req, res) => {
 <title>SHUKI — Server</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background: #F7F3EE;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #F5F5F5;
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 24px;
-    color: #2C2416;
+    color: #111827;
   }
   .card {
     background: #FFFFFF;
     max-width: 480px;
     width: 100%;
-    border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(80,50,20,0.08);
-    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    padding: 48px;
   }
   .header {
     display: flex;
@@ -101,29 +101,30 @@ app.get('/', (_req, res) => {
     margin-bottom: 6px;
   }
   .wordmark {
-    font-family: 'Lora', serif;
+    font-family: 'Inter', sans-serif;
     font-size: 2rem;
     font-weight: 700;
     color: #C17F3A;
   }
   .version-pill {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: #9B8E82;
-    background: #F7F3EE;
-    padding: 2px 8px;
-    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #6B7280;
+    background: #F3F4F6;
+    padding: 2px 10px;
+    border-radius: 999px;
   }
   .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
+    display: block;
+    width: fit-content;
+    margin: 12px auto 0;
+    text-align: center;
+    font-size: 0.875rem;
     font-weight: 500;
-    color: #166534;
-    background: #dcfce7;
-    padding: 6px 14px;
-    border-radius: 20px;
+    color: #065F46;
+    background: #D1FAE5;
+    padding: 6px 16px;
+    border-radius: 999px;
     margin-bottom: 28px;
   }
   .status-dot {
@@ -132,14 +133,21 @@ app.get('/', (_req, res) => {
     border-radius: 50%;
     background: #22c55e;
     display: inline-block;
+    margin-right: 6px;
   }
-  h2 {
+  .divider {
+    border: none;
+    border-top: 1px solid #F3F4F6;
+    margin: 24px 0;
+  }
+  .section-heading {
     font-family: 'Inter', sans-serif;
-    font-size: 1rem;
+    font-size: 0.7rem;
     font-weight: 600;
-    color: #2C2416;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #9CA3AF;
     margin-bottom: 16px;
-    margin-top: 28px;
   }
   .steps {
     list-style: none;
@@ -148,32 +156,33 @@ app.get('/', (_req, res) => {
   .steps li {
     counter-increment: step;
     margin-bottom: 14px;
-    padding-left: 36px;
+    padding-left: 40px;
     position: relative;
     line-height: 1.6;
     font-size: 0.9rem;
-    color: #2C2416;
+    color: #111827;
   }
   .steps li::before {
     content: counter(step);
     position: absolute;
     left: 0;
     top: 1px;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     background: #C17F3A;
     color: #fff;
     font-weight: 700;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     border-radius: 50%;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
   }
   .url-block {
-    background: #F7F3EE;
-    border-radius: 8px;
-    padding: 10px 14px;
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 12px 16px;
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
     font-size: 0.8rem;
     margin: 8px 0;
@@ -189,17 +198,17 @@ app.get('/', (_req, res) => {
     border: none;
     font-family: inherit;
     font-size: inherit;
-    color: #2C2416;
+    color: #111827;
     outline: none;
   }
   .url-block button {
     flex-shrink: 0;
     background: #C17F3A;
     border: none;
-    border-radius: 6px;
-    padding: 6px 14px;
-    font-size: 0.75rem;
-    font-weight: 600;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    font-weight: 500;
     cursor: pointer;
     color: #fff;
     font-family: 'Inter', sans-serif;
@@ -213,29 +222,26 @@ app.get('/', (_req, res) => {
     margin-top: 12px;
   }
   .info-item {
-    background: #F7F3EE;
-    border-radius: 10px;
-    padding: 14px 16px;
+    padding: 8px 0;
   }
   .info-item .label {
     font-size: 0.7rem;
     font-weight: 600;
-    color: #9B8E82;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    color: #9CA3AF;
     margin-bottom: 4px;
   }
   .info-item .value {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #2C2416;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #111827;
   }
   footer {
     text-align: center;
     margin-top: 32px;
-    color: #9B8E82;
-    font-size: 0.75rem;
-    letter-spacing: 0.03em;
+    color: #9CA3AF;
+    font-size: 0.8rem;
   }
 </style>
 </head>
@@ -245,9 +251,11 @@ app.get('/', (_req, res) => {
     <span class="wordmark">SHUKI</span>
     <span class="version-pill">v1.0.0</span>
   </div>
-  <div class="status-pill"><span class="status-dot"></span> Server online</div>
+  <div class="status-pill"><span class="status-dot"></span>Server online</div>
 
-  <h2>Connect the app</h2>
+  <hr class="divider" />
+
+  <div class="section-heading">Connect the app</div>
   <ol class="steps">
     <li>Open the SHUKI desktop app</li>
     <li>Enter this server URL:
@@ -256,11 +264,13 @@ app.get('/', (_req, res) => {
         <button id="copy-btn">Copy</button>
       </div>
     </li>
-    <li>Enter your API Key <span style="color:#9B8E82;font-size:0.8rem">(found in Docker logs)</span></li>
+    <li>Enter your API Key <span style="color:#9CA3AF;font-size:0.8rem">(found in Docker logs)</span></li>
     <li>Click <strong>Connect</strong></li>
   </ol>
 
-  <h2>Server info</h2>
+  <hr class="divider" />
+
+  <div class="section-heading">Server info</div>
   <div class="info-grid">
     <div class="info-item">
       <div class="label">Uptime</div>
@@ -316,7 +326,6 @@ app.get('/', (_req, res) => {
       if (data.storage && data.storage.free) {
         document.getElementById('storage').textContent = formatBytes(data.storage.free);
       }
-      // Estimate uptime from process if available
       document.getElementById('uptime').textContent = 'Online';
     })
     .catch(function() {

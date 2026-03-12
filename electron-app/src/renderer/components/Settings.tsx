@@ -112,17 +112,17 @@ export default function Settings({ onClose }: Props) {
       saveSettings({ serverUrl: url, apiKey, offlineOnly: false });
       setServerStatus({ connected: true });
       setServerUpdateStatus('success');
-      setServerUpdateMsg('\u2705 Connection updated successfully');
+      setServerUpdateMsg('Connection updated successfully');
       toast.success('Server connection updated');
     } else if (result.errorType === 'auth') {
       setServerUpdateStatus('error');
-      setServerUpdateMsg('\u274C Invalid API Key');
+      setServerUpdateMsg('Invalid API Key');
     } else if (result.errorType === 'network') {
       setServerUpdateStatus('error');
-      setServerUpdateMsg('\u274C Server not reachable \u2014 check the URL');
+      setServerUpdateMsg('Server not reachable — check the URL');
     } else {
       setServerUpdateStatus('error');
-      setServerUpdateMsg('\u274C Could not connect to server');
+      setServerUpdateMsg('Could not connect to server');
     }
   };
 
@@ -163,33 +163,55 @@ export default function Settings({ onClose }: Props) {
   ];
 
   return (
-    <div className="h-screen overflow-y-auto fade-in" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="max-w-2xl mx-auto p-8">
+    <div className="h-screen overflow-y-auto fade-in" style={{ backgroundColor: 'var(--bg)' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: 40 }}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="font-display text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>
             Settings
           </h1>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            style={{
+              backgroundColor: 'transparent',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '10px 20px',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              fontFamily: 'var(--font-ui)',
+            }}
           >
-            &#8592; Back
+            Back
           </button>
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-1 mb-6 p-1 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        <div style={{
+          display: 'flex',
+          gap: 4,
+          marginBottom: 24,
+          padding: 4,
+          borderRadius: 'var(--radius)',
+          backgroundColor: 'var(--bg-sidebar)',
+        }}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setSettingsTab(tab.id)}
-              className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
               style={{
-                backgroundColor: settingsTab === tab.id ? 'var(--bg-card)' : 'transparent',
-                color: settingsTab === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                boxShadow: settingsTab === tab.id ? 'var(--shadow)' : 'none',
+                flex: 1,
+                padding: '8px 0',
+                borderRadius: 8,
+                fontSize: '0.875rem',
+                fontWeight: settingsTab === tab.id ? 500 : 400,
+                backgroundColor: settingsTab === tab.id ? 'var(--bg-active)' : 'transparent',
+                color: settingsTab === tab.id ? 'var(--accent)' : 'var(--text-secondary)',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-ui)',
               }}
             >
               {tab.label}
@@ -200,25 +222,31 @@ export default function Settings({ onClose }: Props) {
         {/* Tab content */}
         {settingsTab === 'shortcuts' && (
           <Card>
-            <h2 className="font-display text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-              Keyboard Shortcuts
-            </h2>
-            <div className="space-y-1">
+            <SectionHeading>Keyboard Shortcuts</SectionHeading>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {shortcuts.map((shortcut) => (
                 <div
                   key={shortcut.id}
-                  className="flex items-center justify-between py-2 px-3 rounded-lg transition-all cursor-pointer"
                   style={{
-                    backgroundColor: recordingId === shortcut.id ? 'var(--accent-soft)' : 'transparent',
-                    border: recordingId === shortcut.id ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    backgroundColor: recordingId === shortcut.id ? 'var(--bg-active)' : 'transparent',
+                    border: recordingId === shortcut.id ? '1px solid var(--accent)' : '1px solid transparent',
                   }}
                   onClick={() => setRecordingId(recordingId === shortcut.id ? null : shortcut.id)}
                 >
-                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{shortcut.label}</span>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>{shortcut.label}</span>
                   <kbd
-                    className="px-2 py-0.5 rounded text-xs font-mono"
                     style={{
-                      backgroundColor: recordingId === shortcut.id ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      fontSize: '0.75rem',
+                      fontFamily: 'var(--font-mono)',
+                      backgroundColor: recordingId === shortcut.id ? 'var(--accent)' : 'var(--bg-hover)',
                       color: recordingId === shortcut.id ? '#fff' : 'var(--text-primary)',
                       border: '1px solid var(--border)',
                     }}
@@ -230,8 +258,18 @@ export default function Settings({ onClose }: Props) {
             </div>
             <button
               onClick={resetShortcuts}
-              className="mt-4 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80"
-              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+              style={{
+                marginTop: 16,
+                padding: '10px 20px',
+                borderRadius: 8,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                backgroundColor: 'transparent',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-ui)',
+              }}
             >
               Reset to Defaults
             </button>
@@ -242,24 +280,33 @@ export default function Settings({ onClose }: Props) {
           <>
             {/* Server Status Card */}
             <Card>
-              <h2 className="font-display text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                Server Status
-              </h2>
-              <div className="grid grid-cols-2 gap-4">
+              <SectionHeading>Server Status</SectionHeading>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <InfoRow label="Status" value={
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: serverStatus.connected ? '#22c55e' : '#ef4444' }} />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: serverStatus.connected ? '#22c55e' : '#ef4444',
+                    }} />
                     {serverStatus.connected ? 'Connected' : 'Offline'}
                   </span>
                 } />
                 <InfoRow label="Server URL" value={
-                  <span className="flex items-center gap-1">
-                    <span className="truncate">{settings.serverUrl || '—'}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{settings.serverUrl || '—'}</span>
                     {settings.serverUrl && (
                       <button
                         onClick={() => { navigator.clipboard.writeText(settings.serverUrl); toast.success('URL copied'); }}
-                        className="text-xs px-1 rounded hover:opacity-80"
-                        style={{ color: 'var(--accent-primary)' }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          fontSize: '0.75rem',
+                          color: 'var(--accent)',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
                       >
                         Copy
                       </button>
@@ -272,7 +319,14 @@ export default function Settings({ onClose }: Props) {
                 <InfoRow label="Storage Path" value={serverStatus.storage.path || '—'} />
               </div>
               {!serverStatus.connected && (
-                <div className="mt-4 p-3 rounded-lg text-sm" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--text-primary)' }}>
+                <div style={{
+                  marginTop: 16,
+                  padding: 12,
+                  borderRadius: 8,
+                  fontSize: '0.875rem',
+                  backgroundColor: 'var(--bg-hover)',
+                  color: 'var(--text-secondary)',
+                }}>
                   Working offline — changes will sync when server is available
                 </div>
               )}
@@ -280,42 +334,78 @@ export default function Settings({ onClose }: Props) {
 
             {/* Server Configuration */}
             <Card>
-              <h2 className="font-display text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                Server Configuration
-              </h2>
-              <div className="space-y-3">
+              <SectionHeading>Server Configuration</SectionHeading>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Server URL</label>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: 4, color: 'var(--text-secondary)' }}>Server URL</label>
                   <input
                     type="url"
                     value={serverUrl}
                     onChange={(e) => setServerUrl(e.target.value)}
                     placeholder="http://localhost:3000"
-                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                    style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: 8,
+                      fontSize: '0.875rem',
+                      outline: 'none',
+                      backgroundColor: 'var(--bg)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border)',
+                      fontFamily: 'var(--font-ui)',
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = 'var(--accent)')}
+                    onBlur={(e) => (e.target.style.borderColor = '')}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>API Key</label>
-                  <div className="flex gap-2">
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: 4, color: 'var(--text-secondary)' }}>API Key</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
                     <input
                       type={showApiKey ? 'text' : 'password'}
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-xl text-sm outline-none"
-                      style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        borderRadius: 8,
+                        fontSize: '0.875rem',
+                        outline: 'none',
+                        backgroundColor: 'var(--bg)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border)',
+                        fontFamily: 'var(--font-ui)',
+                      }}
+                      onFocus={(e) => (e.target.style.borderColor = 'var(--accent)')}
+                      onBlur={(e) => (e.target.style.borderColor = '')}
                     />
                     <button
                       onClick={() => setShowApiKey(!showApiKey)}
-                      className="px-3 py-2 rounded-xl text-xs"
-                      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: 8,
+                        fontSize: '0.75rem',
+                        backgroundColor: 'transparent',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-ui)',
+                      }}
                     >
                       {showApiKey ? 'Hide' : 'Show'}
                     </button>
                     <button
                       onClick={() => { navigator.clipboard.writeText(apiKey); toast.success('API key copied'); }}
-                      className="px-3 py-2 rounded-xl text-xs"
-                      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: 8,
+                        fontSize: '0.75rem',
+                        backgroundColor: 'transparent',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-ui)',
+                      }}
                     >
                       Copy
                     </button>
@@ -323,21 +413,36 @@ export default function Settings({ onClose }: Props) {
                 </div>
                 {serverUpdateMsg && (
                   <div
-                    className="text-sm px-3 py-2 rounded-xl"
                     style={{
-                      backgroundColor: serverUpdateStatus === 'error' ? '#fee' : '#efe',
-                      color: serverUpdateStatus === 'error' ? '#c33' : '#363',
+                      fontSize: '0.875rem',
+                      padding: '10px 14px',
+                      borderRadius: 8,
+                      backgroundColor: serverUpdateStatus === 'error' ? '#FEF2F2' : '#F0FDF4',
+                      color: serverUpdateStatus === 'error' ? '#EF4444' : '#10B981',
                     }}
                   >
                     {serverUpdateMsg}
                   </div>
                 )}
-                <div className="flex gap-2">
+                <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={handleServerUpdate}
                     disabled={serverUpdateStatus === 'checking'}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-                    style={{ backgroundColor: 'var(--accent-primary)', color: '#fff' }}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: 8,
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                      backgroundColor: 'var(--accent)',
+                      color: '#fff',
+                      border: 'none',
+                      cursor: 'pointer',
+                      opacity: serverUpdateStatus === 'checking' ? 0.5 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontFamily: 'var(--font-ui)',
+                    }}
                   >
                     {serverUpdateStatus === 'checking' && (
                       <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -351,8 +456,17 @@ export default function Settings({ onClose }: Props) {
                         toast.success(result.ok ? 'Server reachable' : 'Server unreachable');
                       });
                     }}
-                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80"
-                    style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: 8,
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border)',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-ui)',
+                    }}
                   >
                     Reconnect
                   </button>
@@ -365,8 +479,17 @@ export default function Settings({ onClose }: Props) {
                       setServerStatus({ connected: false });
                       toast.success('Disconnected from server');
                     }}
-                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80"
-                    style={{ backgroundColor: '#ef4444', color: '#fff' }}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: 8,
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                      backgroundColor: '#EF4444',
+                      color: '#fff',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-ui)',
+                    }}
                   >
                     Disconnect
                   </button>
@@ -379,21 +502,25 @@ export default function Settings({ onClose }: Props) {
         {settingsTab === 'general' && (
           <>
             <Card>
-              <h2 className="font-display text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                Appearance
-              </h2>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Theme</label>
-                <div className="flex gap-2">
+              <SectionHeading>Appearance</SectionHeading>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: 8, color: 'var(--text-secondary)' }}>Theme</label>
+                <div style={{ display: 'flex', gap: 8 }}>
                   {(['light', 'dark', 'system'] as ThemeMode[]).map((t) => (
                     <button
                       key={t}
                       onClick={() => handleThemeChange(t)}
-                      className="px-4 py-2 rounded-xl text-sm font-medium transition-all capitalize"
                       style={{
-                        backgroundColor: settings.theme === t ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                        padding: '10px 20px',
+                        borderRadius: 8,
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        textTransform: 'capitalize',
+                        backgroundColor: settings.theme === t ? 'var(--accent)' : 'transparent',
                         color: settings.theme === t ? '#fff' : 'var(--text-primary)',
-                        border: '1px solid var(--border)',
+                        border: settings.theme === t ? 'none' : '1px solid var(--border)',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-ui)',
                       }}
                     >
                       {t}
@@ -401,49 +528,63 @@ export default function Settings({ onClose }: Props) {
                   ))}
                 </div>
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: 8, color: 'var(--text-secondary)' }}>
                   Editor Font Size: {settings.fontSize}px
                 </label>
                 <input type="range" min={12} max={24} value={settings.fontSize}
                   onChange={(e) => handleFontSizeChange(Number(e.target.value))}
-                  className="w-full" style={{ accentColor: 'var(--accent-primary)' }}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: 8, color: 'var(--text-secondary)' }}>
                   Auto-save Interval: {(settings.autoSaveInterval / 1000).toFixed(1)}s
                 </label>
                 <input type="range" min={500} max={5000} step={250} value={settings.autoSaveInterval}
                   onChange={(e) => handleAutoSaveChange(Number(e.target.value))}
-                  className="w-full" style={{ accentColor: 'var(--accent-primary)' }}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
                 />
               </div>
             </Card>
 
             <Card>
-              <h2 className="font-display text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                Data
-              </h2>
-              <div className="flex gap-3">
+              <SectionHeading>Data</SectionHeading>
+              <div style={{ display: 'flex', gap: 12 }}>
                 <button onClick={handleExportNotes}
-                  className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
-                  style={{ backgroundColor: 'var(--accent-primary)', color: '#fff' }}>
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: 8,
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    backgroundColor: 'var(--accent)',
+                    color: '#fff',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-ui)',
+                  }}>
                   Export All Notes (ZIP)
                 </button>
                 <button onClick={handleClearCache}
-                  className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80"
-                  style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: 8,
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border)',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-ui)',
+                  }}>
                   Clear Local Cache
                 </button>
               </div>
             </Card>
 
             <Card>
-              <h2 className="font-display text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                Reset
-              </h2>
-              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+              <SectionHeading>Reset</SectionHeading>
+              <p style={{ fontSize: '0.875rem', marginBottom: 12, color: 'var(--text-secondary)' }}>
                 Reset all settings, shortcuts, and UI preferences to their defaults. This will reload the app.
               </p>
               <button
@@ -451,8 +592,17 @@ export default function Settings({ onClose }: Props) {
                   await resetAllSettings();
                   window.location.reload();
                 }}
-                className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80"
-                style={{ backgroundColor: '#ef4444', color: '#fff' }}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: 8,
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  backgroundColor: '#EF4444',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-ui)',
+                }}
               >
                 Reset All Settings to Defaults
               </button>
@@ -462,24 +612,31 @@ export default function Settings({ onClose }: Props) {
 
         {settingsTab === 'about' && (
           <Card>
-            <div className="text-center py-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
-                style={{ backgroundColor: 'var(--accent-primary)' }}>
-                <span className="text-2xl font-bold text-white">S</span>
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 56,
+                height: 56,
+                borderRadius: 14,
+                backgroundColor: 'var(--accent)',
+                marginBottom: 16,
+              }}>
+                <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#fff' }}>S</span>
               </div>
-              <h2 className="font-display text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>SHUKI</h2>
-              <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 4, color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>SHUKI</h2>
+              <p style={{ fontSize: '0.875rem', marginBottom: 16, color: 'var(--text-secondary)' }}>
                 v1.0.0
               </p>
-              <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              <p style={{ fontSize: '0.875rem', marginBottom: 16, color: 'var(--text-secondary)' }}>
                 Self-hosted note-taking with real-time sync
               </p>
               <a
                 href="https://github.com/techbygiusi/shuki"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-medium underline"
-                style={{ color: 'var(--accent-primary)' }}
+                style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
               >
                 GitHub Repository
               </a>
@@ -493,21 +650,47 @@ export default function Settings({ onClose }: Props) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="p-6 mb-6" style={{
-      backgroundColor: 'var(--bg-card)',
-      borderRadius: '16px',
-      boxShadow: 'var(--shadow)',
+    <div style={{
+      backgroundColor: 'var(--bg-sidebar)',
+      borderRadius: 'var(--radius)',
+      border: '1px solid var(--border)',
+      padding: 24,
+      marginBottom: 16,
     }}>
       {children}
     </div>
   );
 }
 
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 style={{
+      fontSize: '0.7rem',
+      fontWeight: 600,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      color: 'var(--text-muted)',
+      marginBottom: 16,
+      fontFamily: 'var(--font-ui)',
+    }}>
+      {children}
+    </h2>
+  );
+}
+
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <span className="text-xs block" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{value}</span>
+      <span style={{
+        fontSize: '0.7rem',
+        fontWeight: 600,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: 'var(--text-muted)',
+        display: 'block',
+        marginBottom: 4,
+      }}>{label}</span>
+      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>{value}</span>
     </div>
   );
 }

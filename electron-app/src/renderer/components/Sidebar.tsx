@@ -102,25 +102,18 @@ export default function Sidebar({
   const sortedFolders = [...folders].sort((a, b) => a.sortOrder - b.sortOrder);
 
   // Sync status
-  const syncDotColor =
-    syncState === 'synced' ? '#22c55e'
-    : syncState === 'syncing' ? '#f59e0b'
-    : syncState === 'pending' ? '#f97316'
-    : syncState === 'auth_error' ? '#ef4444'
-    : '#ef4444';
-
-  const syncEmoji =
-    syncState === 'synced' ? '\uD83D\uDFE2'
-    : syncState === 'syncing' ? '\uD83D\uDFE1'
-    : syncState === 'pending' ? '\uD83D\uDFE0'
-    : '\uD83D\uDD34';
-
   const syncLabel =
     syncState === 'synced' ? (serverStatus.lastSync ? `Last synced ${formatTimeAgo(serverStatus.lastSync)}` : 'Synced')
     : syncState === 'syncing' ? 'Syncing...'
     : syncState === 'pending' ? `Pending (${pendingChanges} changes)`
-    : syncState === 'auth_error' ? 'Auth Error \u2014 tap to fix'
+    : syncState === 'auth_error' ? 'Auth Error'
     : 'Offline';
+
+  const syncDotColor =
+    syncState === 'synced' ? '#22c55e'
+    : syncState === 'syncing' ? '#f59e0b'
+    : syncState === 'pending' ? '#f97316'
+    : '#ef4444';
 
   return (
     <aside
@@ -132,41 +125,59 @@ export default function Sidebar({
       }}
     >
       {/* SHUKI wordmark */}
-      <div className="px-4 pt-4 pb-2" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+      <div style={{ padding: '20px 16px 12px', WebkitAppRegion: 'drag' } as React.CSSProperties}>
         <span
-          className="font-display text-base font-semibold tracking-wide"
-          style={{ color: 'var(--text-muted)' }}
+          style={{
+            fontFamily: 'var(--font-ui)',
+            fontWeight: 700,
+            fontSize: '1rem',
+            color: 'var(--accent)',
+          }}
         >
           SHUKI
         </span>
       </div>
 
-      {/* Search + New folder button */}
-      <div className="px-3 mb-1 flex items-center gap-1">
-        <div className="flex-1 relative">
-          <svg
-            className="absolute left-2.5 top-1/2 -translate-y-1/2"
-            width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            id="search-input"
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
-            className="w-full pl-8 pr-3 py-1.5 rounded-md text-sm outline-none"
-            style={{
-              backgroundColor: 'transparent',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
-            }}
-          />
-        </div>
+      {/* Search input */}
+      <div style={{ margin: '0 12px 8px' }}>
+        <input
+          id="search-input"
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search..."
+          style={{
+            width: '100%',
+            backgroundColor: 'var(--bg-hover)',
+            color: 'var(--text-primary)',
+            border: 'none',
+            borderRadius: 8,
+            padding: '8px 12px',
+            fontSize: '0.875rem',
+            outline: 'none',
+            fontFamily: 'var(--font-ui)',
+          }}
+        />
+      </div>
+
+      {/* Buttons row */}
+      <div style={{ display: 'flex', gap: 8, padding: '0 16px', marginBottom: 8 }}>
+        <button
+          onClick={onNewNote}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-secondary)',
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            padding: 0,
+            fontFamily: 'var(--font-ui)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+        >
+          + New Note
+        </button>
         <button
           onClick={() => {
             const newId = onNewFolder();
@@ -174,38 +185,40 @@ export default function Sidebar({
               setTimeout(() => startRename(newId, 'New Folder'), 50);
             }
           }}
-          className="w-7 h-7 flex items-center justify-center rounded-md text-sm transition-all hover:opacity-80"
-          style={{ color: 'var(--text-muted)' }}
-          title="New Folder"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-secondary)',
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            padding: 0,
+            fontFamily: 'var(--font-ui)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-            <line x1="12" y1="11" x2="12" y2="17" />
-            <line x1="9" y1="14" x2="15" y2="14" />
-          </svg>
-        </button>
-      </div>
-
-      {/* + New page button */}
-      <div className="px-3 mb-2">
-        <button
-          onClick={onNewNote}
-          className="w-full text-left px-2 py-1 text-sm transition-all hover:opacity-80"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          + New page
+          + Folder
         </button>
       </div>
 
       {/* Folder tree + Notes */}
-      <div className="flex-1 overflow-y-auto px-2">
+      <div className="flex-1 overflow-y-auto" style={{ padding: '0 8px' }}>
         {/* All Notes */}
         <button
           onClick={() => setActiveFolderId(null)}
-          className="w-full text-left px-2 py-1 rounded-md text-sm transition-all mb-0.5"
           style={{
-            backgroundColor: activeFolderId === null ? 'var(--accent-soft)' : 'transparent',
-            color: 'var(--text)',
+            width: '100%',
+            textAlign: 'left',
+            padding: '4px 16px',
+            borderRadius: 6,
+            fontSize: '0.875rem',
+            backgroundColor: activeFolderId === null ? 'var(--bg-active)' : 'transparent',
+            color: activeFolderId === null ? 'var(--accent)' : 'var(--text-secondary)',
+            fontWeight: activeFolderId === null ? 500 : 400,
+            border: 'none',
+            cursor: 'pointer',
+            marginBottom: 2,
+            fontFamily: 'var(--font-ui)',
           }}
           onDragOver={(e) => handleDragOver(e, null)}
           onDrop={(e) => handleDrop(e, null)}
@@ -224,9 +237,15 @@ export default function Sidebar({
           return (
             <div key={folder.id}>
               <div
-                className="flex items-center gap-1 px-2 py-1 rounded-md cursor-pointer transition-all group mb-0.5"
                 style={{
-                  backgroundColor: isDragOver ? 'var(--accent-soft)' : isActive ? 'var(--accent-soft)' : 'transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 16px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  marginBottom: 2,
+                  backgroundColor: isDragOver ? 'var(--bg-hover)' : isActive ? 'var(--bg-hover)' : 'transparent',
                 }}
                 onClick={() => {
                   if (activeFolderId === folder.id) {
@@ -263,8 +282,17 @@ export default function Sidebar({
                 {renamingFolderId === folder.id ? (
                   <input
                     autoFocus
-                    className="flex-1 text-sm bg-transparent outline-none px-1"
-                    style={{ color: 'var(--text)', border: '1px solid var(--accent)', borderRadius: 4 }}
+                    style={{
+                      flex: 1,
+                      fontSize: '0.875rem',
+                      background: 'transparent',
+                      outline: 'none',
+                      padding: '0 4px',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--accent)',
+                      borderRadius: 4,
+                      fontFamily: 'var(--font-ui)',
+                    }}
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
                     onBlur={commitRename}
@@ -272,7 +300,14 @@ export default function Sidebar({
                     onClick={(e) => e.stopPropagation()}
                   />
                 ) : (
-                  <span className="flex-1 text-sm truncate" style={{ color: 'var(--text)' }}>
+                  <span style={{
+                    flex: 1,
+                    fontSize: '0.875rem',
+                    color: 'var(--text-secondary)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
                     {folder.name}
                   </span>
                 )}
@@ -308,7 +343,13 @@ export default function Sidebar({
         ))}
 
         {filteredNotes.length === 0 && (
-          <div className="text-center py-8 text-sm italic" style={{ color: 'var(--text-muted)' }}>
+          <div style={{
+            textAlign: 'center',
+            padding: '32px 0',
+            fontSize: '0.875rem',
+            fontStyle: 'italic',
+            color: 'var(--text-muted)',
+          }}>
             {searchQuery ? 'No notes found' : 'No notes yet'}
           </div>
         )}
@@ -332,11 +373,18 @@ export default function Sidebar({
         />
       )}
 
-      {/* Bottom: Settings + Sync status */}
-      <div className="px-3 py-2 space-y-1" style={{ borderTop: '1px solid var(--border)' }}>
+      {/* Bottom: Sync status + Settings */}
+      <div style={{ borderTop: '1px solid var(--border)' }}>
         <div
-          className={`flex items-center gap-2 text-xs ${syncState === 'auth_error' ? 'cursor-pointer hover:opacity-80' : ''}`}
-          style={{ color: 'var(--text-muted)' }}
+          style={{
+            padding: '12px 16px 4px',
+            fontSize: '0.75rem',
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: syncState === 'auth_error' ? 'pointer' : 'default',
+          }}
           onClick={() => {
             if (syncState === 'auth_error') {
               useStore.getState().setShowSettings(true);
@@ -344,25 +392,48 @@ export default function Sidebar({
             }
           }}
         >
-          <span>{syncEmoji}</span>
-          <span className="truncate">
-            {syncState === 'auth_error' ? '\uD83D\uDD11 ' : ''}
+          <span style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            backgroundColor: syncDotColor,
+            flexShrink: 0,
+          }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {syncLabel}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div style={{ padding: '4px 16px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             onClick={() => setShowSettings(true)}
-            className="text-xs transition-all hover:opacity-80"
-            style={{ color: 'var(--text-muted)' }}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '0.8rem',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: 0,
+              fontFamily: 'var(--font-ui)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
           >
             Settings
           </button>
-          <span style={{ color: 'var(--text-muted)', fontSize: '8px' }}>&middot;</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 8 }}>&middot;</span>
           <button
             onClick={() => setShowGallery(true)}
-            className="text-xs transition-all hover:opacity-80"
-            style={{ color: 'var(--text-muted)' }}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '0.8rem',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: 0,
+              fontFamily: 'var(--font-ui)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
           >
             Gallery
           </button>
@@ -386,13 +457,29 @@ function NoteRow({ note, isActive, indented, onSelect, onContextMenu, onDragStar
       onDragStart={onDragStart}
       onClick={onSelect}
       onContextMenu={onContextMenu}
-      className="px-2 py-1 mb-0.5 rounded-md cursor-pointer transition-all"
       style={{
-        marginLeft: indented ? 16 : 0,
-        backgroundColor: isActive ? 'var(--accent-soft)' : 'transparent',
+        padding: indented ? '6px 16px 6px 32px' : '6px 16px',
+        borderRadius: 6,
+        cursor: 'pointer',
+        marginBottom: 2,
+        backgroundColor: isActive ? 'var(--bg-active)' : 'transparent',
+      }}
+      onMouseEnter={(e) => {
+        if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+      }}
+      onMouseLeave={(e) => {
+        if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
       }}
     >
-      <span className="text-sm truncate block" style={{ color: 'var(--text)' }}>
+      <span style={{
+        fontSize: '0.875rem',
+        display: 'block',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        color: isActive ? 'var(--accent)' : 'var(--text-primary)',
+        fontWeight: isActive ? 500 : 400,
+      }}>
         {note.title || 'Untitled'}
       </span>
     </div>
@@ -416,13 +503,16 @@ function ContextMenuPopup({ menu, folders, notes, onClose, onDeleteNote, onDelet
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
-        className="fixed z-50 py-1 rounded-lg shadow-lg min-w-[160px]"
+        className="fixed z-50"
         style={{
           left: menu.x,
           top: menu.y,
           backgroundColor: 'var(--bg)',
           border: '1px solid var(--border)',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+          boxShadow: 'var(--shadow-md)',
+          borderRadius: 8,
+          padding: '4px 0',
+          minWidth: 160,
         }}
       >
         {menu.type === 'folder' ? (
@@ -434,7 +524,7 @@ function ContextMenuPopup({ menu, folders, notes, onClose, onDeleteNote, onDelet
           <>
             <CtxItem onClick={() => setShowMoveMenu(!showMoveMenu)}>Move to Folder</CtxItem>
             {showMoveMenu && (
-              <div className="pl-2">
+              <div style={{ paddingLeft: 8 }}>
                 <CtxItem onClick={() => { onMoveNote(menu.targetId, null); onClose(); }}>No Folder</CtxItem>
                 {folders.map((f) => (
                   <CtxItem key={f.id} onClick={() => { onMoveNote(menu.targetId, f.id); onClose(); }}>
@@ -456,8 +546,19 @@ function CtxItem({ onClick, children, danger }: { onClick: () => void; children:
   return (
     <button
       onClick={onClick}
-      className="w-full text-left px-3 py-1.5 text-sm hover:opacity-80 transition-all"
-      style={{ color: danger ? '#ef4444' : 'var(--text)' }}
+      style={{
+        width: '100%',
+        textAlign: 'left',
+        padding: '6px 12px',
+        fontSize: '0.875rem',
+        color: danger ? '#EF4444' : 'var(--text-primary)',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        fontFamily: 'var(--font-ui)',
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
     >
       {children}
     </button>

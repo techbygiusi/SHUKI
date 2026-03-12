@@ -35,45 +35,67 @@ export default function Onboarding({ onComplete }: Props) {
       setTimeout(() => onComplete({ serverUrl: url, apiKey, offlineOnly: false }), 800);
     } else if (result.errorType === 'auth') {
       setStatus('error');
-      setErrorMsg('\u274C Invalid API Key \u2014 please check your key in the Docker logs');
+      setErrorMsg('Invalid API Key — please check your key in the Docker logs');
     } else if (result.errorType === 'network') {
       setStatus('error');
-      setErrorMsg('\u274C Server not reachable \u2014 check the URL');
+      setErrorMsg('Server not reachable — check the URL');
     } else {
       setStatus('error');
-      setErrorMsg('\u274C Could not connect to server. Check the URL and make sure the server is running.');
+      setErrorMsg('Could not connect to server. Check the URL and make sure the server is running.');
     }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 14px',
+    borderRadius: 8,
+    fontSize: '0.875rem',
+    outline: 'none',
+    backgroundColor: 'var(--bg)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border)',
+    fontFamily: 'var(--font-ui)',
   };
 
   return (
     <div
-      className="h-screen flex items-center justify-center p-8 fade-in"
-      style={{ backgroundColor: 'var(--bg-primary)' }}
+      className="h-screen flex items-center justify-center fade-in"
+      style={{
+        backgroundColor: 'var(--bg)',
+        padding: 24,
+      }}
     >
       <div
-        className="w-full max-w-md p-8"
         style={{
-          backgroundColor: 'var(--bg-card)',
-          borderRadius: '16px',
-          boxShadow: 'var(--shadow)',
+          width: '100%',
+          maxWidth: 420,
+          backgroundColor: 'var(--bg)',
+          borderRadius: 16,
+          boxShadow: 'var(--shadow-md)',
+          padding: 48,
         }}
       >
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
-            style={{ backgroundColor: 'var(--accent-primary)' }}>
-            <span className="text-2xl font-bold text-white">S</span>
-          </div>
-          <h1 className="font-display text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-            Welcome to SHUKI
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <h1 style={{
+            fontFamily: 'var(--font-ui)',
+            fontSize: '1.75rem',
+            fontWeight: 700,
+            color: 'var(--accent)',
+            marginBottom: 8,
+          }}>
+            SHUKI
           </h1>
-          <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Connect to your self-hosted server or use offline mode
+          <p style={{
+            fontSize: '0.875rem',
+            color: 'var(--text-secondary)',
+          }}>
+            Connect to your server
           </p>
         </div>
 
-        <div className="space-y-4">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>
               Server URL
             </label>
             <input
@@ -81,18 +103,13 @@ export default function Onboarding({ onComplete }: Props) {
               value={serverUrl}
               onChange={(e) => setServerUrl(e.target.value)}
               placeholder="http://localhost:3000"
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border)',
-              }}
-              onFocus={(e) => (e.target.style.borderColor = 'var(--accent-primary)')}
-              onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--accent)')}
+              onBlur={(e) => (e.target.style.borderColor = '')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>
               API Key
             </label>
             <input
@@ -100,25 +117,28 @@ export default function Onboarding({ onComplete }: Props) {
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="Paste your API key from Docker logs"
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border)',
-              }}
-              onFocus={(e) => (e.target.style.borderColor = 'var(--accent-primary)')}
-              onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--accent)')}
+              onBlur={(e) => (e.target.style.borderColor = '')}
             />
           </div>
 
           {status === 'error' && (
-            <div className="text-sm px-3 py-2 rounded-xl" style={{ backgroundColor: '#fee', color: '#c33' }}>
+            <div style={{
+              fontSize: '0.875rem',
+              color: '#EF4444',
+              marginTop: 8,
+            }}>
               {errorMsg}
             </div>
           )}
 
           {status === 'success' && (
-            <div className="text-sm px-3 py-2 rounded-xl" style={{ backgroundColor: '#efe', color: '#363' }}>
+            <div style={{
+              fontSize: '0.875rem',
+              color: '#10B981',
+              marginTop: 8,
+            }}>
               Connected successfully!
             </div>
           )}
@@ -126,8 +146,23 @@ export default function Onboarding({ onComplete }: Props) {
           <button
             onClick={handleConnect}
             disabled={status === 'checking'}
-            className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-            style={{ backgroundColor: 'var(--accent-primary)', color: '#fff' }}
+            style={{
+              width: '100%',
+              padding: '10px 20px',
+              borderRadius: 8,
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              backgroundColor: 'var(--accent)',
+              color: '#fff',
+              border: 'none',
+              cursor: 'pointer',
+              opacity: status === 'checking' ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              fontFamily: 'var(--font-ui)',
+            }}
           >
             {status === 'checking' && (
               <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -135,19 +170,25 @@ export default function Onboarding({ onComplete }: Props) {
             {status === 'checking' ? 'Connecting...' : 'Connect'}
           </button>
 
-          <div className="relative flex items-center my-4">
-            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
-            <span className="px-3 text-xs" style={{ color: 'var(--text-secondary)' }}>or</span>
-            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 0' }}>
+            <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border)' }} />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>or</span>
+            <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border)' }} />
           </div>
 
           <button
             onClick={() => onComplete({ serverUrl: '', apiKey: '', offlineOnly: true })}
-            className="w-full py-3 rounded-xl text-sm font-medium transition-all hover:opacity-80"
             style={{
+              width: '100%',
+              padding: '10px 20px',
+              borderRadius: 8,
+              fontSize: '0.875rem',
+              fontWeight: 500,
               backgroundColor: 'transparent',
               color: 'var(--text-secondary)',
               border: '1px solid var(--border)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-ui)',
             }}
           >
             Use Offline Only

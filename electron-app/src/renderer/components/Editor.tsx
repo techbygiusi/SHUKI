@@ -33,7 +33,7 @@ function ImageNodeView({ node, selected, deleteNode }: NodeViewProps) {
           style={{
             maxWidth: '100%',
             outline: selected ? '3px solid #C17F3A' : 'none',
-            borderRadius: '8px',
+            borderRadius: '10px',
             cursor: 'pointer',
           }}
         />
@@ -158,8 +158,13 @@ export default function Editor({ note, onChange, folders }: Props) {
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashPos, setSlashPos] = useState<{ top: number; left: number } | null>(null);
   const [hoveringFooter, setHoveringFooter] = useState(false);
+  const [isLinkPopoverOpen, setIsLinkPopoverOpen] = useState(false);
+  const [linkInputValue, setLinkInputValue] = useState('');
+  const [linkIsEdit, setLinkIsEdit] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const linkPopoverRef = useRef<HTMLDivElement>(null);
+  const linkBtnRef = useRef<HTMLButtonElement>(null);
 
   const folder = useMemo(() => {
     if (!note.folderId) return null;
@@ -179,7 +184,12 @@ export default function Editor({ note, onChange, folders }: Props) {
         codeBlock: false,
       }),
       Underline,
-      Link.configure({ openOnClick: false }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          rel: 'noopener noreferrer',
+        },
+      }),
       SelectableImage.configure({ inline: true, allowBase64: true }),
       Placeholder.configure({ placeholder: 'Type \'/\' for commands...' }),
       TaskList,
@@ -379,6 +389,58 @@ export default function Editor({ note, onChange, folders }: Props) {
     return () => document.removeEventListener('mousedown', handler);
   }, [showColorPicker]);
 
+  // Close link popover on outside click
+  useEffect(() => {
+    if (!isLinkPopoverOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        linkPopoverRef.current && !linkPopoverRef.current.contains(e.target as Node) &&
+        linkBtnRef.current && !linkBtnRef.current.contains(e.target as Node)
+      ) {
+        setIsLinkPopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isLinkPopoverOpen]);
+
+  const handleLinkButtonClick = useCallback(() => {
+    if (!editor) return;
+    if (editor.isActive('link')) {
+      // Show popover with current href pre-filled
+      const href = editor.getAttributes('link').href || '';
+      setLinkInputValue(href);
+      setLinkIsEdit(true);
+      setIsLinkPopoverOpen(true);
+    } else if (editor.state.selection.empty) {
+      // No text selected, do nothing
+      return;
+    } else {
+      // Show popover with empty input for new URL
+      setLinkInputValue('');
+      setLinkIsEdit(false);
+      setIsLinkPopoverOpen(true);
+    }
+  }, [editor]);
+
+  const handleLinkSubmit = useCallback(() => {
+    if (!editor || !linkInputValue.trim()) return;
+    let url = linkInputValue.trim();
+    if (!/^https?:\/\//i.test(url)) {
+      url = 'https://' + url;
+    }
+    editor.chain().focus().setLink({ href: url, target: '_blank' }).run();
+    setIsLinkPopoverOpen(false);
+    setLinkInputValue('');
+  }, [editor, linkInputValue]);
+
+  const handleUnlink = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().unsetLink().run();
+    setIsLinkPopoverOpen(false);
+    setLinkInputValue('');
+  }, [editor]);
+
   const currentTextColor = editor?.getAttributes('textStyle')?.color || null;
 
   /** Generate markdown from current content for display in markdown mode */
@@ -394,6 +456,9 @@ export default function Editor({ note, onChange, folders }: Props) {
   // Breadcrumb text
   const breadcrumb = folder ? `${folder.name} / ${note.title || 'Untitled'}` : note.title || 'Untitled';
 
+  // Link button disabled state
+  const linkBtnDisabled = editor ? (!editor.isActive('link') && editor.state.selection.empty) : true;
+
   return (
     <div className="flex flex-col h-full fade-in" style={{ backgroundColor: 'var(--bg)' }}>
       {/* Hidden file input for image picker */}
@@ -407,10 +472,13 @@ export default function Editor({ note, onChange, folders }: Props) {
 
       {/* Breadcrumb title bar */}
       <div
-        className="px-6 py-2 text-xs flex items-center gap-1"
+        className="flex items-center justify-center"
         style={{
+          height: 40,
           color: 'var(--text-muted)',
+          fontSize: '0.8rem',
           borderBottom: '1px solid var(--border)',
+          backgroundColor: 'var(--bg)',
           WebkitAppRegion: 'drag',
         } as React.CSSProperties}
       >
@@ -419,28 +487,50 @@ export default function Editor({ note, onChange, folders }: Props) {
 
       {/* Centered content column */}
       <div className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--bg)' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 24px 80px' }}>
+        <div style={{ maxWidth: 740, margin: '0 auto', padding: '0 24px' }}>
+          {/* Breadcrumb above title */}
+          {folder && (
+            <div style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
+              letterSpacing: '0.04em',
+              marginBottom: 16,
+              paddingTop: 60,
+            }}>
+              {folder.name}
+            </div>
+          )}
+
           {/* Large page title */}
           <input
             type="text"
             value={note.title}
             onChange={handleTitleChange}
-            className="w-full bg-transparent outline-none border-none font-display"
+            className="w-full bg-transparent outline-none border-none"
             style={{
-              color: 'var(--text)',
-              fontSize: '2.5rem',
+              color: 'var(--text-primary)',
+              fontSize: '2.25rem',
               fontWeight: 700,
+              fontFamily: 'var(--font-ui)',
               lineHeight: 1.2,
               marginBottom: '8px',
+              paddingTop: folder ? 0 : 60,
             }}
             placeholder="Untitled"
           />
 
-          {/* Minimal toolbar */}
+          {/* Toolbar */}
           {editorMode === 'rich' && editor && (
             <div
-              className="flex items-center gap-0.5 py-2 mb-4"
-              style={{ borderBottom: '1px solid var(--border)' }}
+              className="flex items-center gap-0.5 relative"
+              style={{
+                position: 'sticky',
+                top: 0,
+                backgroundColor: 'var(--bg)',
+                borderBottom: '1px solid var(--border)',
+                padding: '6px 0',
+                zIndex: 10,
+              }}
             >
               <ToolBtn active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold">B</ToolBtn>
               <ToolBtn active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></ToolBtn>
@@ -451,26 +541,74 @@ export default function Editor({ note, onChange, folders }: Props) {
               <ToolBtn active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading 2">H2</ToolBtn>
               <ToolBtn active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title="Heading 3">H3</ToolBtn>
               <Sep />
-              <ToolBtn active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet list">&#8226;</ToolBtn>
-              <ToolBtn active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Numbered list">1.</ToolBtn>
+              <ToolBtn
+                active={editor.isActive('bulletList')}
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                title="Bullet list"
+              >&#8226;</ToolBtn>
+              <ToolBtn
+                active={editor.isActive('orderedList')}
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                title="Numbered list"
+              >1.</ToolBtn>
               <ToolBtn active={editor.isActive('taskList')} onClick={() => editor.chain().focus().toggleTaskList().run()} title="Task list">&#9745;</ToolBtn>
               <Sep />
               <ToolBtn active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Blockquote">&#8220;</ToolBtn>
               <ToolBtn active={editor.isActive('codeBlock')} onClick={() => editor.chain().focus().toggleCodeBlock().run()} title="Code block">&lt;/&gt;</ToolBtn>
               <ToolBtn active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()} title="Highlight">{'\uD83D\uDD8D'}</ToolBtn>
               <Sep />
-              <ToolBtn
-                active={editor.isActive('link')}
-                onClick={() => {
-                  if (editor.isActive('link')) {
-                    editor.chain().focus().unsetLink().run();
-                  } else {
-                    const url = prompt('Enter URL:');
-                    if (url) editor.chain().focus().setLink({ href: url }).run();
-                  }
-                }}
-                title={editor.isActive('link') ? 'Remove link' : 'Insert link'}
-              >{'\uD83D\uDD17'}</ToolBtn>
+              <div className="relative">
+                <button
+                  ref={linkBtnRef}
+                  className={`toolbar-btn${editor.isActive('link') ? ' active' : ''}${linkBtnDisabled ? ' opacity-40' : ''}`}
+                  onClick={handleLinkButtonClick}
+                  title={editor.isActive('link') ? 'Edit link' : 'Insert link'}
+                  disabled={linkBtnDisabled}
+                  style={linkBtnDisabled ? { cursor: 'not-allowed' } : undefined}
+                >
+                  {'\uD83D\uDD17'}
+                </button>
+                {isLinkPopoverOpen && (
+                  <div ref={linkPopoverRef} className="link-popover" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4 }}>
+                    <input
+                      type="url"
+                      placeholder="https://example.com"
+                      value={linkInputValue}
+                      onChange={(e) => setLinkInputValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleLinkSubmit();
+                        }
+                        if (e.key === 'Escape') {
+                          setIsLinkPopoverOpen(false);
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleLinkSubmit}
+                      style={{
+                        backgroundColor: 'var(--accent)',
+                        color: '#fff',
+                      }}
+                    >
+                      {linkIsEdit ? 'Update' : 'Apply'}
+                    </button>
+                    {linkIsEdit && (
+                      <button
+                        onClick={handleUnlink}
+                        style={{
+                          backgroundColor: '#EF4444',
+                          color: '#fff',
+                        }}
+                      >
+                        Unlink
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <ToolBtn active={false} onClick={handleFilePickerImage} title="Insert image">{'\uD83D\uDCF7'}</ToolBtn>
               <ToolBtn active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">{'\u2015'}</ToolBtn>
               <Sep />
@@ -478,22 +616,25 @@ export default function Editor({ note, onChange, folders }: Props) {
                 <button
                   onClick={() => setShowColorPicker(!showColorPicker)}
                   title="Text color"
-                  className="w-7 h-7 flex flex-col items-center justify-center rounded text-xs font-bold transition-all"
-                  style={{
-                    backgroundColor: showColorPicker ? 'var(--accent)' : 'transparent',
-                    color: showColorPicker ? '#fff' : 'var(--text-muted)',
-                  }}
+                  className={`toolbar-btn${showColorPicker ? ' active' : ''}`}
+                  style={{ flexDirection: 'column' }}
                 >
-                  <span>A</span>
-                  <span className="w-4 h-1 rounded-sm mt-px" style={{ backgroundColor: currentTextColor || 'var(--text)' }} />
+                  <span style={{ fontWeight: 700 }}>A</span>
+                  <span style={{
+                    width: 16,
+                    height: 3,
+                    borderRadius: 2,
+                    marginTop: 1,
+                    backgroundColor: currentTextColor || 'var(--text-primary)',
+                  }} />
                 </button>
                 {showColorPicker && (
                   <div
-                    className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 p-2 rounded-lg shadow-lg z-50"
+                    className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 p-2 rounded-lg z-50"
                     style={{
                       backgroundColor: 'var(--bg)',
                       border: '1px solid var(--border)',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                      boxShadow: 'var(--shadow-md)',
                     }}
                   >
                     <div className="grid grid-cols-7 gap-1 mb-1.5" style={{ width: '182px' }}>
@@ -644,7 +785,7 @@ function MarkdownView({ content, onContentChange, onToggleMode, fontSize }: {
         value={content}
         onChange={onContentChange}
         className="w-full min-h-[60vh] bg-transparent outline-none resize-none font-mono"
-        style={{ color: 'var(--text)', fontSize, lineHeight: '1.8' }}
+        style={{ color: 'var(--text-primary)', fontSize, lineHeight: '1.8' }}
         placeholder="Write in Markdown..."
         readOnly
       />
@@ -652,16 +793,19 @@ function MarkdownView({ content, onContentChange, onToggleMode, fontSize }: {
   );
 }
 
-function ToolBtn({ active, onClick, title, children }: { active: boolean; onClick: () => void; title: string; children: React.ReactNode }) {
+function ToolBtn({ active, onClick, title, children, disabled }: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
   return (
     <button
       onClick={onClick}
       title={title}
-      className="w-7 h-7 flex items-center justify-center rounded text-xs font-medium transition-all"
-      style={{
-        backgroundColor: active ? 'var(--accent)' : 'transparent',
-        color: active ? '#fff' : 'var(--text-muted)',
-      }}
+      disabled={disabled}
+      className={`toolbar-btn${active ? ' active' : ''}`}
     >
       {children}
     </button>
@@ -669,7 +813,7 @@ function ToolBtn({ active, onClick, title, children }: { active: boolean; onClic
 }
 
 function Sep() {
-  return <div className="w-px h-4 mx-1" style={{ backgroundColor: 'var(--border)' }} />;
+  return <div style={{ width: 1, height: 20, margin: '0 4px', backgroundColor: 'var(--border)' }} />;
 }
 
 function markdownToHtml(md: string): string {

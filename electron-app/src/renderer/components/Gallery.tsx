@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { listLocalImages, getImagesPath } from '../utils/storage';
 import { Note, Folder } from '../types';
@@ -96,54 +96,66 @@ export default function Gallery({ onClose, onOpenNote }: Props) {
   }
 
   return (
-    <div className="h-screen overflow-y-auto fade-in" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="max-w-4xl mx-auto p-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="font-display text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+    <div className="h-screen overflow-y-auto fade-in" style={{ backgroundColor: 'var(--bg)' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>
             Image Gallery
           </h1>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            style={{
+              padding: '10px 20px',
+              borderRadius: 8,
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              backgroundColor: 'transparent',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-ui)',
+            }}
           >
-            &#8592; Back
+            Back
           </button>
         </div>
 
         {loading ? (
-          <div className="text-center py-16">
-            <p className="font-display text-lg" style={{ color: 'var(--text-secondary)' }}>
+          <div style={{ textAlign: 'center', padding: '64px 0' }}>
+            <p style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>
               Loading images...
             </p>
           </div>
         ) : error ? (
-          <div className="text-center py-16">
-            <p className="font-display text-lg" style={{ color: '#ef4444' }}>
+          <div style={{ textAlign: 'center', padding: '64px 0' }}>
+            <p style={{ fontSize: '1rem', color: '#EF4444' }}>
               {error}
             </p>
           </div>
         ) : images.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="font-display italic text-lg" style={{ color: 'var(--text-secondary)' }}>
+          <div style={{ textAlign: 'center', padding: '64px 0' }}>
+            <p style={{ fontSize: '1rem', fontStyle: 'italic', color: 'var(--text-secondary)' }}>
               No images yet
             </p>
-            <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
+            <p style={{ fontSize: '0.875rem', marginTop: 8, color: 'var(--text-secondary)' }}>
               Paste or drag images into your notes and they will appear here.
             </p>
-            <p className="text-xs mt-4" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
+            <p style={{ fontSize: '0.75rem', marginTop: 16, color: 'var(--text-muted)' }}>
               Tip: You can paste images with Ctrl/Cmd+V or drag them into the editor.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-4">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             {images.map((img) => (
               <div
                 key={img.filename}
-                className="rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-lg"
                 style={{
-                  backgroundColor: 'var(--bg-card)',
-                  boxShadow: 'var(--shadow)',
+                  backgroundColor: 'var(--bg-sidebar)',
+                  borderRadius: 'var(--radius)',
+                  border: '1px solid var(--border)',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  transition: 'box-shadow 200ms, transform 200ms',
                 }}
                 onClick={() => {
                   if (img.noteId) {
@@ -151,23 +163,43 @@ export default function Gallery({ onClose, onOpenNote }: Props) {
                     onClose();
                   }
                 }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
               >
-                <div className="aspect-square overflow-hidden">
+                <div style={{ aspectRatio: '1', overflow: 'hidden' }}>
                   <img
                     src={img.fullPath.startsWith('data:') || img.fullPath.startsWith('http') ? img.fullPath : `shuki://${encodeURIComponent(img.fullPath)}`}
                     alt={img.filename}
-                    className="w-full h-full object-cover"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
-                <div className="p-3">
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                <div style={{ padding: 12 }}>
+                  <p style={{
+                    fontSize: '0.8rem',
+                    color: 'var(--text-secondary)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
                     {img.noteTitle || 'Unlinked image'}
                   </p>
                   {img.folderName && (
-                    <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                    <p style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--text-muted)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
                       {img.folderName}
                     </p>
                   )}
