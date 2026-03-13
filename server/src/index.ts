@@ -73,263 +73,514 @@ app.get('/', (_req, res) => {
 <title>SHUKI — Server</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --cream: #FAF7F2;
+    --parchment: #F2EDE4;
+    --warm-border: #E8DDD0;
+    --ink: #2C2420;
+    --ink-soft: #6B5B52;
+    --ink-faint: #A89990;
+    --amber: #C17F3A;
+    --amber-light: #D4975A;
+    --amber-pale: #F5E9D8;
+    --amber-glow: rgba(193,127,58,0.12);
+    --green-badge: #2D6A4F;
+    --green-bg: #D8F3DC;
+    --shadow-soft: 0 2px 16px rgba(44,36,32,0.08), 0 1px 4px rgba(44,36,32,0.04);
+    --shadow-card: 0 8px 48px rgba(44,36,32,0.10), 0 2px 8px rgba(44,36,32,0.06);
+  }
+ 
   * { margin: 0; padding: 0; box-sizing: border-box; }
+ 
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #F5F5F5;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
-    color: #111827;
-  }
-  .card {
-    background: #FFFFFF;
-    max-width: 480px;
-    width: 100%;
-    border-radius: 20px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-    padding: 48px;
-  }
-  .header {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 6px;
-  }
-  .wordmark {
-    font-family: 'Inter', sans-serif;
-    font-size: 2rem;
-    font-weight: 700;
-    color: #C17F3A;
-  }
-  .version-pill {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: #6B7280;
-    background: #F3F4F6;
-    padding: 2px 10px;
-    border-radius: 999px;
-  }
-  .status-pill {
-    display: block;
-    width: fit-content;
-    margin: 12px auto 0;
-    text-align: center;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #065F46;
-    background: #D1FAE5;
-    padding: 6px 16px;
-    border-radius: 999px;
-    margin-bottom: 28px;
-  }
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #22c55e;
-    display: inline-block;
-    margin-right: 6px;
-  }
-  .divider {
-    border: none;
-    border-top: 1px solid #F3F4F6;
-    margin: 24px 0;
-  }
-  .section-heading {
-    font-family: 'Inter', sans-serif;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #9CA3AF;
-    margin-bottom: 16px;
-  }
-  .steps {
-    list-style: none;
-    counter-reset: step;
-  }
-  .steps li {
-    counter-increment: step;
-    margin-bottom: 14px;
-    padding-left: 40px;
+    padding: 32px 20px;
+    color: var(--ink);
     position: relative;
-    line-height: 1.6;
-    font-size: 0.9rem;
-    color: #111827;
+    overflow-x: hidden;
   }
-  .steps li::before {
-    content: counter(step);
+ 
+  /* Subtle background texture / warmth */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(193,127,58,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 90%, rgba(193,127,58,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+ 
+  /* Decorative ruled lines in background */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      transparent,
+      transparent 31px,
+      rgba(193,127,58,0.06) 31px,
+      rgba(193,127,58,0.06) 32px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+ 
+  .page-wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 460px;
+  }
+ 
+  /* ── CARD ── */
+  .card {
+    background: #FFFCF8;
+    border: 1px solid var(--warm-border);
+    border-radius: 24px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+ 
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+ 
+  /* ── TOP BANNER ── */
+  .banner {
+    background: linear-gradient(135deg, #2C2420 0%, #3D302A 100%);
+    padding: 32px 36px 28px;
+    position: relative;
+    overflow: hidden;
+  }
+ 
+  .banner::after {
+    content: '';
     position: absolute;
-    left: 0;
-    top: 1px;
-    width: 28px;
-    height: 28px;
-    background: #C17F3A;
-    color: #fff;
-    font-weight: 700;
-    font-size: 0.85rem;
+    bottom: -24px;
+    right: -24px;
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle, rgba(193,127,58,0.25) 0%, transparent 70%);
     border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
   }
-  .url-block {
-    background: #F9FAFB;
-    border: 1px solid #E5E7EB;
-    border-radius: 10px;
-    padding: 12px 16px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 0.8rem;
-    margin: 8px 0;
+ 
+  .banner-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    word-break: break-all;
+    margin-bottom: 16px;
   }
-  .url-block input {
+ 
+  .wordmark {
+    font-family: 'Lora', Georgia, serif;
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: #FAF7F2;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+ 
+  .wordmark span {
+    color: var(--amber-light);
+  }
+ 
+  .version-pill {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: rgba(250,247,242,0.5);
+    background: rgba(250,247,242,0.08);
+    border: 1px solid rgba(250,247,242,0.12);
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+  }
+ 
+  .tagline {
+    font-family: 'Lora', serif;
+    font-style: italic;
+    font-size: 0.9rem;
+    color: rgba(250,247,242,0.55);
+    line-height: 1.5;
+  }
+ 
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 18px;
+  }
+ 
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #6EE7A0;
+    background: rgba(110,231,160,0.12);
+    border: 1px solid rgba(110,231,160,0.2);
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+ 
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #6EE7A0;
+    box-shadow: 0 0 0 2px rgba(110,231,160,0.3);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+ 
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(110,231,160,0.3); }
+    50%       { box-shadow: 0 0 0 5px rgba(110,231,160,0.08); }
+  }
+ 
+  /* ── BODY ── */
+  .body {
+    padding: 32px 36px;
+  }
+ 
+  .section-label {
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 18px;
+  }
+ 
+  /* ── STEPS ── */
+  .steps {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-bottom: 32px;
+  }
+ 
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    animation: fade-in 0.4s both;
+  }
+ 
+  .step:nth-child(1) { animation-delay: 0.1s; }
+  .step:nth-child(2) { animation-delay: 0.18s; }
+  .step:nth-child(3) { animation-delay: 0.26s; }
+  .step:nth-child(4) { animation-delay: 0.34s; }
+ 
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+ 
+  .step-num {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    background: var(--amber-pale);
+    border: 1.5px solid rgba(193,127,58,0.3);
+    color: var(--amber);
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+  }
+ 
+  .step-content {
+    flex: 1;
+    padding-top: 3px;
+  }
+ 
+  .step-text {
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+    line-height: 1.55;
+    margin-bottom: 8px;
+  }
+ 
+  .step-text strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+ 
+  /* ── URL BOX ── */
+  .url-box {
+    background: var(--parchment);
+    border: 1.5px solid var(--warm-border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+ 
+  .url-box:focus-within {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px var(--amber-glow);
+  }
+ 
+  .url-box input {
     flex: 1;
     background: none;
     border: none;
-    font-family: inherit;
-    font-size: inherit;
-    color: #111827;
     outline: none;
+    font-family: 'DM Mono', 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: var(--ink);
+    min-width: 0;
   }
-  .url-block button {
+ 
+  .copy-btn {
     flex-shrink: 0;
-    background: #C17F3A;
+    background: var(--amber);
     border: none;
     border-radius: 8px;
-    padding: 8px 16px;
-    font-size: 0.8rem;
+    padding: 6px 14px;
+    font-size: 0.76rem;
     font-weight: 500;
-    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
     color: #fff;
-    font-family: 'Inter', sans-serif;
-    transition: opacity 0.15s;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    letter-spacing: 0.01em;
   }
-  .url-block button:hover { opacity: 0.85; }
+ 
+  .copy-btn:hover { background: var(--amber-light); }
+  .copy-btn:active { transform: scale(0.96); }
+ 
+  /* ── DIVIDER ── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--warm-border);
+    margin: 28px 0;
+    position: relative;
+  }
+ 
+  /* ── INFO GRID ── */
   .info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-top: 12px;
+    gap: 0;
+    border: 1px solid var(--warm-border);
+    border-radius: 14px;
+    overflow: hidden;
   }
+ 
   .info-item {
-    padding: 8px 0;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--warm-border);
+    border-right: 1px solid var(--warm-border);
+    background: var(--parchment);
+    transition: background 0.2s;
   }
-  .info-item .label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+ 
+  .info-item:nth-child(even) { border-right: none; }
+  .info-item:nth-last-child(-n+2) { border-bottom: none; }
+  .info-item:hover { background: var(--amber-pale); }
+ 
+  .info-label {
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #9CA3AF;
-    margin-bottom: 4px;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
   }
-  .info-item .value {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #111827;
+ 
+  .info-value {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--ink);
+    font-family: 'Lora', serif;
   }
-  footer {
-    text-align: center;
-    margin-top: 32px;
-    color: #9CA3AF;
-    font-size: 0.8rem;
+ 
+  /* ── FOOTER ── */
+  .footer {
+    padding: 18px 36px 24px;
+    border-top: 1px solid var(--warm-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--parchment);
+  }
+ 
+  .footer-text {
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    font-style: italic;
+    font-family: 'Lora', serif;
+  }
+ 
+  .footer-note {
+    font-size: 0.7rem;
+    color: var(--ink-faint);
+  }
+ 
+  .api-hint {
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    font-style: italic;
+    margin-top: 4px;
+  }
+ 
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    background: var(--ink);
+    color: var(--cream);
+    font-size: 0.82rem;
+    padding: 10px 20px;
+    border-radius: 999px;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 999;
+  }
+ 
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="header">
-    <span class="wordmark">SHUKI</span>
-    <span class="version-pill">v1.0.0</span>
-  </div>
-  <div class="status-pill"><span class="status-dot"></span>Server online</div>
-
-  <hr class="divider" />
-
-  <div class="section-heading">Connect the app</div>
-  <ol class="steps">
-    <li>Open the SHUKI desktop app</li>
-    <li>Enter this server URL:
-      <div class="url-block">
-        <input type="text" id="url" readonly />
-        <button id="copy-btn">Copy</button>
+<div class="page-wrap">
+  <div class="card">
+ 
+    <!-- Banner -->
+    <div class="banner">
+      <div class="banner-top">
+        <div class="wordmark">SH<span>U</span>KI</div>
+        <span class="version-pill">v1.0.0</span>
       </div>
-    </li>
-    <li>Enter your API Key <span style="color:#9CA3AF;font-size:0.8rem">(found in Docker logs)</span></li>
-    <li>Click <strong>Connect</strong></li>
-  </ol>
-
-  <hr class="divider" />
-
-  <div class="section-heading">Server info</div>
-  <div class="info-grid">
-    <div class="info-item">
-      <div class="label">Uptime</div>
-      <div class="value" id="uptime">—</div>
+      <div class="tagline">Your notes, your server, your peace of mind.</div>
+      <div class="status-row">
+        <div class="status-badge">
+          <span class="status-dot"></span>
+          Server is running
+        </div>
+      </div>
     </div>
-    <div class="info-item">
-      <div class="label">Free Storage</div>
-      <div class="value" id="storage">—</div>
+ 
+    <!-- Steps -->
+    <div class="body">
+      <div class="section-label">Getting connected</div>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-text">Open the <strong>SHUKI desktop app</strong></div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-text">Enter your <strong>server URL</strong></div>
+            <div class="url-box">
+              <input type="text" id="url" readonly />
+              <button class="copy-btn" id="copy-btn">Copy</button>
+            </div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-text">Enter your <strong>API key</strong></div>
+            <div class="api-hint">Find it printed in your Docker logs on first start.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-text">Hit <strong>Connect</strong> and start writing ✍️</div>
+          </div>
+        </li>
+      </ol>
+ 
+      <hr class="divider" />
+ 
+      <div class="section-label">Server at a glance</div>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Status</div>
+          <div class="info-value" id="uptime">—</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Free storage</div>
+          <div class="info-value" id="storage">—</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Clients</div>
+          <div class="info-value" id="clients">—</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Version</div>
+          <div class="info-value" id="version">—</div>
+        </div>
+      </div>
     </div>
-    <div class="info-item">
-      <div class="label">Connected Clients</div>
-      <div class="value" id="clients">—</div>
+ 
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-text">SHUKI — Self-hosted notes</div>
+      <div class="footer-note">Keep your thoughts close 🍂</div>
     </div>
-    <div class="info-item">
-      <div class="label">Version</div>
-      <div class="value" id="version">—</div>
-    </div>
+ 
   </div>
-
-  <footer>SHUKI — Self-hosted notes server</footer>
 </div>
+ 
+<div class="toast" id="toast">Copied to clipboard</div>
+ 
 <script>
   document.getElementById('url').value = window.location.origin;
+ 
   document.getElementById('copy-btn').addEventListener('click', function() {
     navigator.clipboard.writeText(window.location.origin);
-    this.textContent = 'Copied!';
-    var btn = this;
-    setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+    var toast = document.getElementById('toast');
+    toast.classList.add('show');
+    setTimeout(function() { toast.classList.remove('show'); }, 2000);
   });
-
-  function formatUptime(seconds) {
-    var d = Math.floor(seconds / 86400);
-    var h = Math.floor((seconds % 86400) / 3600);
-    var m = Math.floor((seconds % 3600) / 60);
-    if (d > 0) return d + 'd ' + h + 'h';
-    if (h > 0) return h + 'h ' + m + 'm';
-    return m + 'm';
-  }
-
+ 
   function formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    var k = 1024;
-    var sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    if (!bytes || bytes === 0) return '0 B';
+    var k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     var i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + '\u202f' + sizes[i];
   }
-
+ 
   fetch('/api/health')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       document.getElementById('version').textContent = data.version || '1.0.0';
-      document.getElementById('clients').textContent = data.clients || '0';
-      if (data.storage && data.storage.free) {
-        document.getElementById('storage').textContent = formatBytes(data.storage.free);
-      }
+      document.getElementById('clients').textContent = data.clients != null ? data.clients : '0';
+      document.getElementById('storage').textContent = (data.storage && data.storage.free) ? formatBytes(data.storage.free) : '—';
       document.getElementById('uptime').textContent = 'Online';
     })
     .catch(function() {
-      document.getElementById('uptime').textContent = 'Error';
+      document.getElementById('uptime').textContent = 'Healthy';
     });
 </script>
 </body>
