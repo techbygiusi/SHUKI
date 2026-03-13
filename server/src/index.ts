@@ -164,17 +164,6 @@ app.get('/', (_req, res) => {
     overflow: hidden;
   }
  
-  .banner::after {
-    content: '';
-    position: absolute;
-    bottom: -24px;
-    right: -24px;
-    width: 120px;
-    height: 120px;
-    background: radial-gradient(circle, rgba(193,127,58,0.25) 0%, transparent 70%);
-    border-radius: 50%;
-  }
- 
   .banner-top {
     display: flex;
     align-items: center;
