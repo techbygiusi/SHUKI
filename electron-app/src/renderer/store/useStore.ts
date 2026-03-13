@@ -29,6 +29,7 @@ interface AppState {
   sidebarWidth: number;
   syncState: SyncState;
   pendingChanges: number;
+  syncMessage: string;
   showGallery: boolean;
   shortcuts: ShortcutConfig[];
 
@@ -49,6 +50,7 @@ interface AppState {
   setEditorMode: (mode: 'rich' | 'markdown') => void;
   setSyncState: (state: SyncState) => void;
   setPendingChanges: (count: number) => void;
+  setSyncMessage: (msg: string) => void;
   setShowGallery: (v: boolean) => void;
   setShortcuts: (shortcuts: ShortcutConfig[]) => void;
   setContextMenu: (menu: { x: number; y: number; type: 'note' | 'folder'; targetId: string } | null) => void;
@@ -91,8 +93,9 @@ export const useStore = create<AppState>((set, get) => ({
   settingsTab: 'shortcuts',
   editorMode: 'rich',
   sidebarWidth: 260,
-  syncState: 'offline',
+  syncState: 'disconnected',
   pendingChanges: 0,
+  syncMessage: '',
   showGallery: false,
   shortcuts: DEFAULT_SHORTCUTS,
   contextMenu: null,
@@ -121,6 +124,7 @@ export const useStore = create<AppState>((set, get) => ({
   setEditorMode: (mode) => set({ editorMode: mode }),
   setSyncState: (state) => set({ syncState: state }),
   setPendingChanges: (count) => set({ pendingChanges: count }),
+  setSyncMessage: (msg) => set({ syncMessage: msg }),
   setShowGallery: (v) => set({ showGallery: v }),
   setShortcuts: (shortcuts) => set({ shortcuts }),
   setContextMenu: (menu) => set({ contextMenu: menu }),

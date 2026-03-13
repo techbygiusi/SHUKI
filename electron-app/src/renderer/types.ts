@@ -36,7 +36,7 @@ export interface ServerStatus {
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-export type SyncState = 'synced' | 'syncing' | 'pending' | 'offline' | 'auth_error';
+export type SyncState = 'disconnected' | 'connecting' | 'synced' | 'syncing' | 'pending' | 'offline' | 'auth_error' | 'error';
 
 export interface AppSettings {
   theme: ThemeMode;

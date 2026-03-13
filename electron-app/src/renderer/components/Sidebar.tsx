@@ -98,18 +98,26 @@ export default function Sidebar({
   const unfolderedNotes = filteredNotes.filter((n) => !n.folderId);
   const sortedFolders = [...folders].sort((a, b) => a.sortOrder - b.sortOrder);
 
+  const { syncMessage } = useStore();
+
   const syncLabel =
-    syncState === 'synced'   ? (serverStatus.lastSync ? `Synced ${formatTimeAgo(serverStatus.lastSync)}` : 'Synced')
-    : syncState === 'syncing'  ? 'Syncing…'
-    : syncState === 'pending'  ? `${pendingChanges} pending`
-    : syncState === 'auth_error' ? 'Auth error'
-    : 'Offline';
+    syncState === 'synced'       ? (serverStatus.lastSync ? `Synced` : 'Synced')
+    : syncState === 'syncing'    ? (syncMessage || 'Syncing\u2026')
+    : syncState === 'connecting' ? 'Connecting\u2026'
+    : syncState === 'pending'    ? `${pendingChanges} changes pending`
+    : syncState === 'auth_error' ? 'Auth error \u2014 tap to fix'
+    : syncState === 'error'      ? 'Sync error \u2014 tap to retry'
+    : syncState === 'offline'    ? 'Offline \u2014 changes saved locally'
+    : 'Disconnected';
 
   const syncDotColor =
-    syncState === 'synced'     ? '#6EE7A0'
-    : syncState === 'syncing'  ? '#FCD34D'
-    : syncState === 'pending'  ? '#FB923C'
-    : '#F87171';
+    syncState === 'synced'       ? '#6EE7A0'
+    : syncState === 'syncing'    ? '#60A5FA'
+    : syncState === 'connecting' ? '#60A5FA'
+    : syncState === 'pending'    ? '#FCD34D'
+    : syncState === 'auth_error' ? '#F87171'
+    : syncState === 'error'      ? '#FB923C'
+    : '#9CA3AF';
 
   return (
     <aside
@@ -359,12 +367,15 @@ export default function Sidebar({
             alignItems: 'center',
             gap: 6,
             marginBottom: 8,
-            cursor: syncState === 'auth_error' ? 'pointer' : 'default',
+            cursor: (syncState === 'auth_error' || syncState === 'error') ? 'pointer' : 'default',
           }}
           onClick={() => {
             if (syncState === 'auth_error') {
               useStore.getState().setShowSettings(true);
               useStore.getState().setSettingsTab('server');
+            } else if (syncState === 'error' || syncState === 'offline') {
+              // Trigger a reconnect attempt via a custom event
+              window.dispatchEvent(new CustomEvent('shuki:retry-sync'));
             }
           }}
         >

@@ -582,6 +582,11 @@ app.use('/api', createHealthRouter(db, wsState, DATA_PATH));
 // Auth middleware for all other /api routes
 app.use('/api', authMiddleware(API_KEY));
 
+// API key validation endpoint (behind auth middleware)
+app.get('/api/validate', (_req, res) => {
+  res.json({ valid: true });
+});
+
 // Routes
 app.use('/api', createNotesRouter(db, io));
 app.use('/api', createFoldersRouter(db, io));

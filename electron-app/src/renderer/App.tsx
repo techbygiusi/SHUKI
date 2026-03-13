@@ -5,12 +5,12 @@ import {
   loadSettings, saveSettings, loadNotesFromLocal, saveNoteLocal, deleteNoteLocal,
   getPendingNotes, markNoteSynced, loadFoldersFromLocal, saveFolderLocal, deleteFolderLocal,
   markFolderSynced, addToSyncQueue, getSyncQueue, removeSyncQueueItem, loadShortcuts,
-  loadUIState, saveUIState, cleanupOrphanedImages,
+  loadUIState, saveUIState, cleanupOrphanedImages, clearSyncQueue,
 } from './utils/storage';
 import {
   initApi, initSocket, checkServerHealth, fetchNotes, fetchFolders,
   syncNote, disconnectSocket, getApi, deleteFolderOnServer, deleteNoteOnServer,
-  syncFolder,
+  syncFolder, isAuthError, isNetworkError, clearApi,
 } from './utils/sync';
 import { applyTheme, watchSystemTheme } from './utils/theme';
 import Onboarding from './components/Onboarding';
@@ -24,6 +24,9 @@ function generateId(): string {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
+// Backoff delays for queue retries (network errors)
+const BACKOFF_DELAYS = [5000, 10000, 30000, 60000];
+
 export default function App() {
   const {
     settings, setSettings, isOnboarding, setIsOnboarding,
@@ -33,11 +36,15 @@ export default function App() {
     showSettings, setShowSettings,
     showGallery, setShowGallery,
     setServerStatus, editorMode, setEditorMode,
-    syncState, setSyncState, setPendingChanges,
+    syncState, setSyncState, setPendingChanges, setSyncMessage,
     shortcuts, setShortcuts,
   } = useStore();
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncInProgressRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const authErrorMessageRef = useRef<string>('');
 
   // Load settings on mount
   useEffect(() => {
@@ -45,7 +52,12 @@ export default function App() {
       const saved = await loadSettings();
       if (saved.serverUrl || saved.offlineOnly) {
         setSettings(saved);
-        setIsOnboarding(false);
+        // Don't set isOnboarding to false yet — we validate credentials first
+        if (saved.offlineOnly) {
+          setIsOnboarding(false);
+          setSyncState('disconnected');
+        }
+        // If serverUrl is set but not offlineOnly, we validate on next effect
       }
       if (saved.theme) applyTheme(saved.theme);
       if (saved.editorMode) setEditorMode(saved.editorMode);
@@ -60,10 +72,31 @@ export default function App() {
         setShortcuts(updated);
       }
 
-      // Restore UI state (last selected note/folder)
+      // Restore UI state
       const uiState = await loadUIState();
       if (uiState.activeNoteId) setActiveNoteId(uiState.activeNoteId);
       if (uiState.activeFolderId) setActiveFolderId(uiState.activeFolderId);
+
+      // If we have server credentials, validate them before entering app
+      if (saved.serverUrl && !saved.offlineOnly) {
+        setSyncState('connecting');
+        const result = await checkServerHealth(saved.serverUrl, saved.apiKey || '');
+        if (result.ok) {
+          setIsOnboarding(false);
+        } else if (result.errorType === 'auth') {
+          // Invalid stored API key — redirect to connect screen
+          authErrorMessageRef.current = 'Your API key is no longer valid \u2014 please reconnect';
+          setSyncState('auth_error');
+          setIsOnboarding(true);
+          // Clear invalid saved credentials
+          await saveSettings({ serverUrl: '', apiKey: '' });
+          setSettings({ serverUrl: '', apiKey: '' });
+        } else {
+          // Network/server error — still enter app but show offline state
+          setIsOnboarding(false);
+          setSyncState('offline');
+        }
+      }
     })();
   }, []);
 
@@ -89,66 +122,44 @@ export default function App() {
     }
   }, [isOnboarding]);
 
-  // Connect to server
+  // Connect to server and perform full sync
   useEffect(() => {
     if (isOnboarding || settings.offlineOnly || !settings.serverUrl) {
-      setSyncState('offline');
+      if (settings.offlineOnly) setSyncState('disconnected');
       return;
     }
 
     const api = initApi(settings.serverUrl, settings.apiKey);
 
-    // Validate credentials on startup before syncing
-    checkServerHealth(settings.serverUrl, settings.apiKey).then(async (healthResult) => {
+    // Validate credentials and perform full sync
+    (async () => {
+      setSyncState('connecting');
+
+      const healthResult = await checkServerHealth(settings.serverUrl, settings.apiKey);
+
       if (healthResult.errorType === 'auth') {
         setSyncState('auth_error');
         setServerStatus({ connected: false });
+        clearApi();
         return;
       }
+
       if (!healthResult.ok) {
         setServerStatus({ connected: false });
         setSyncState('offline');
-        // Still try to fetch in case health endpoint is unprotected
+        // Don't return — still set up socket for auto-reconnect
+      } else {
+        setServerStatus({
+          connected: true,
+          ...(healthResult.data ? { clients: healthResult.data.clients, storage: healthResult.data.storage } : {}),
+        });
       }
 
-      // Fetch and merge
-      try {
-        const [serverNotes, serverFolders] = await Promise.all([
-          fetchNotes(api).catch((err) => {
-            if (err?.response?.status === 401 || err?.response?.status === 403) {
-              setSyncState('auth_error');
-              setServerStatus({ connected: false });
-            }
-            return null;
-          }),
-          fetchFolders(api).catch(() => null),
-        ]);
-
-        // If auth error was detected, stop
-        const currentSyncState = useStore.getState().syncState;
-        if (currentSyncState === 'auth_error') return;
-
-        if (serverNotes) {
-          const localNotes = await loadNotesFromLocal();
-          const merged = mergeNotes(localNotes, serverNotes);
-          setNotes(merged);
-          for (const n of merged) await saveNoteLocal(n);
-        }
-        if (serverFolders) {
-          const localFolders = await loadFoldersFromLocal();
-          const merged = mergeFolders(localFolders, serverFolders);
-          setFolders(merged);
-          for (const f of merged) await saveFolderLocal(f);
-        }
-        setServerStatus({ connected: true, lastSync: new Date().toISOString() });
-        setSyncState('synced');
-        syncPendingChanges();
-      } catch (err) {
-        console.error('[Sync] Initial fetch failed:', err);
-        setServerStatus({ connected: false });
-        setSyncState('offline');
+      // Perform full sync if server is reachable
+      if (healthResult.ok) {
+        await performFullSync(api);
       }
-    });
+    })();
 
     // WebSocket
     const sock = initSocket(
@@ -175,14 +186,27 @@ export default function App() {
       },
     );
 
-    sock.on('connect', () => {
+    sock.on('connect', async () => {
       const state = useStore.getState();
-      if (state.syncState !== 'auth_error') {
-        setServerStatus({ connected: true });
-        setSyncState('synced');
-        syncPendingChanges();
+      if (state.syncState === 'auth_error') return;
+
+      setServerStatus({ connected: true });
+
+      // Re-validate credentials on reconnect
+      const result = await checkServerHealth(settings.serverUrl, settings.apiKey);
+      if (result.errorType === 'auth') {
+        setSyncState('auth_error');
+        setServerStatus({ connected: false });
+        return;
+      }
+
+      if (result.ok) {
+        // Process pending queue and fetch server changes
+        retryCountRef.current = 0;
+        await performFullSync(api);
       }
     });
+
     sock.on('disconnect', () => {
       const state = useStore.getState();
       if (state.syncState !== 'auth_error') {
@@ -191,23 +215,56 @@ export default function App() {
       }
     });
 
-    // Health check every 30s
+    sock.on('connect_error', (err) => {
+      if (err.message === 'Authentication failed') {
+        setSyncState('auth_error');
+        setServerStatus({ connected: false });
+      }
+    });
+
+    // Listen for manual retry events from UI
+    const handleRetrySync = async () => {
+      const state = useStore.getState();
+      if (state.syncState === 'auth_error') return;
+
+      setSyncState('connecting');
+      const result = await checkServerHealth(settings.serverUrl, settings.apiKey);
+      if (result.ok) {
+        setServerStatus({ connected: true });
+        retryCountRef.current = 0;
+        await performFullSync(api);
+      } else if (result.errorType === 'auth') {
+        setSyncState('auth_error');
+        setServerStatus({ connected: false });
+      } else {
+        setSyncState('offline');
+      }
+    };
+    window.addEventListener('shuki:retry-sync', handleRetrySync);
+
+    // Health check every 30s — only for connectivity detection, not syncing
     const healthInterval = setInterval(async () => {
       const state = useStore.getState();
-      if (state.syncState === 'auth_error') return; // Don't retry with bad key
+      if (state.syncState === 'auth_error') return;
+
       const result = await checkServerHealth(settings.serverUrl, settings.apiKey);
       if (result.errorType === 'auth') {
         setSyncState('auth_error');
         setServerStatus({ connected: false });
         return;
       }
+
+      const wasOffline = !state.serverStatus.connected;
       setServerStatus({
         connected: result.ok,
         ...(result.data ? { clients: result.data.clients, storage: result.data.storage } : {}),
       });
-      if (result.ok) {
-        syncPendingChanges();
-      } else {
+
+      if (result.ok && wasOffline) {
+        // Coming back online — re-validate and sync
+        retryCountRef.current = 0;
+        await performFullSync(api);
+      } else if (!result.ok && state.syncState !== 'offline') {
         setSyncState('offline');
       }
     }, 30000);
@@ -215,22 +272,23 @@ export default function App() {
     return () => {
       clearInterval(healthInterval);
       disconnectSocket();
+      window.removeEventListener('shuki:retry-sync', handleRetrySync);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     };
   }, [isOnboarding, settings.serverUrl, settings.apiKey, settings.offlineOnly]);
 
-  // Update pending changes count
+  // Update pending changes count on sync state change
   useEffect(() => {
     const updatePending = async () => {
       const pending = await getPendingNotes();
       const queue = await getSyncQueue();
-      setPendingChanges(pending.length + queue.length);
-      if (pending.length + queue.length > 0 && syncState === 'synced') {
+      const total = pending.length + queue.length;
+      setPendingChanges(total);
+      if (total > 0 && syncState === 'synced') {
         setSyncState('pending');
       }
     };
     updatePending();
-    const interval = setInterval(updatePending, 5000);
-    return () => clearInterval(interval);
   }, [syncState]);
 
   // Keyboard shortcuts
@@ -275,7 +333,6 @@ export default function App() {
         }
       }
 
-      // Fallback for comma key which may not normalize
       if (mod && e.key === ',') {
         e.preventDefault();
         setShowSettings(true);
@@ -284,6 +341,197 @@ export default function App() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [editorMode, settings.theme, shortcuts]);
+
+  // --- Full sync logic ---
+  async function performFullSync(api: ReturnType<typeof initApi>) {
+    if (syncInProgressRef.current) return;
+    syncInProgressRef.current = true;
+
+    try {
+      setSyncState('syncing');
+      setSyncMessage('Fetching notes...');
+
+      // Step 1: Fetch all server data
+      const [serverNotes, serverFolders] = await Promise.all([
+        fetchNotes(api).catch((err) => {
+          if (isAuthError(err)) {
+            setSyncState('auth_error');
+            setServerStatus({ connected: false });
+          }
+          return null;
+        }),
+        fetchFolders(api).catch(() => null),
+      ]);
+
+      const currentState = useStore.getState();
+      if (currentState.syncState === 'auth_error') {
+        syncInProgressRef.current = false;
+        return;
+      }
+
+      // Step 2: Merge notes (server wins for conflicts by updatedAt)
+      if (serverNotes) {
+        const localNotes = await loadNotesFromLocal();
+        const merged = mergeNotes(localNotes, serverNotes);
+        setNotes(merged);
+
+        const total = merged.length;
+        let count = 0;
+        for (const n of merged) {
+          count++;
+          setSyncMessage(`Syncing ${count} of ${total} notes...`);
+          await saveNoteLocal(n);
+        }
+      }
+
+      // Step 3: Merge folders
+      if (serverFolders) {
+        const localFolders = await loadFoldersFromLocal();
+        const merged = mergeFolders(localFolders, serverFolders);
+        setFolders(merged);
+        for (const f of merged) await saveFolderLocal(f);
+      }
+
+      // Step 4: Push local-only notes to server
+      setSyncMessage('Pushing local changes...');
+      await syncPendingChanges(api);
+
+      // Step 5: Done
+      setServerStatus({ connected: true, lastSync: new Date().toISOString() });
+      setSyncState('synced');
+      setSyncMessage('');
+      retryCountRef.current = 0;
+    } catch (err) {
+      console.error('[Sync] Full sync failed:', err);
+      if (isAuthError(err)) {
+        setSyncState('auth_error');
+        setServerStatus({ connected: false });
+      } else if (isNetworkError(err)) {
+        setSyncState('offline');
+        setServerStatus({ connected: false });
+        scheduleRetry(api);
+      } else {
+        setSyncState('error');
+        setSyncMessage('');
+      }
+    } finally {
+      syncInProgressRef.current = false;
+    }
+  }
+
+  // --- Queue processing ---
+  async function syncPendingChanges(api?: ReturnType<typeof initApi>) {
+    const activeApi = api || getApi();
+    const state = useStore.getState();
+    if (!activeApi || state.settings.offlineOnly || state.syncState === 'auth_error') return;
+
+    // Process pending notes (unsynced in local db)
+    const pending = await getPendingNotes();
+    for (const note of pending) {
+      try {
+        await syncNote(activeApi, note);
+        await markNoteSynced(note.id);
+        updateNote(note.id, { synced: true });
+      } catch (err: unknown) {
+        if (isAuthError(err)) {
+          setSyncState('auth_error');
+          setServerStatus({ connected: false });
+          return;
+        }
+        if (isNetworkError(err)) {
+          setSyncState('offline');
+          scheduleRetry();
+          return;
+        }
+        console.error(`[Sync] Failed to sync note "${note.title}":`, err);
+      }
+    }
+
+    // Process sync queue items one at a time
+    const queue = await getSyncQueue();
+    let retries = 0;
+    for (const item of queue) {
+      try {
+        if (item.entityType === 'note') {
+          if (item.action === 'delete') {
+            await deleteNoteOnServer(activeApi, item.entityId);
+          } else {
+            const latestNotes = await loadNotesFromLocal();
+            const latestNote = latestNotes.find(n => n.id === item.entityId);
+            const payload = latestNote || (JSON.parse(item.payload) as Note);
+            await syncNote(activeApi, payload);
+            await markNoteSynced(item.entityId);
+            updateNote(item.entityId, { synced: true });
+          }
+        } else if (item.entityType === 'folder') {
+          if (item.action === 'delete') {
+            await deleteFolderOnServer(activeApi, item.entityId);
+          } else {
+            const payload = JSON.parse(item.payload) as Folder;
+            await syncFolder(activeApi, payload);
+          }
+        }
+        await removeSyncQueueItem(item.id);
+        retries = 0; // Reset retries on success
+      } catch (err: unknown) {
+        if (isAuthError(err)) {
+          setSyncState('auth_error');
+          setServerStatus({ connected: false });
+          return;
+        }
+        if (isNetworkError(err)) {
+          setSyncState('offline');
+          scheduleRetry();
+          return;
+        }
+        // Server error (500): retry up to 3 times
+        retries++;
+        if (retries >= 3) {
+          console.error(`[Sync] Queue item ${item.id} failed 3 times, skipping:`, err);
+          retries = 0;
+          // Leave item in queue for next full sync attempt
+          continue;
+        }
+        console.error(`[Sync] Queue item ${item.id} failed (retry ${retries}/3):`, err);
+      }
+    }
+
+    // Update counts
+    const remaining = await getSyncQueue();
+    const pendingRemaining = await getPendingNotes();
+    const total = remaining.length + pendingRemaining.length;
+    setPendingChanges(total);
+  }
+
+  // --- Retry with exponential backoff ---
+  function scheduleRetry(api?: ReturnType<typeof initApi>) {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+
+    const delayIndex = Math.min(retryCountRef.current, BACKOFF_DELAYS.length - 1);
+    const delay = BACKOFF_DELAYS[delayIndex];
+    retryCountRef.current++;
+
+    retryTimerRef.current = setTimeout(async () => {
+      const state = useStore.getState();
+      if (state.syncState === 'auth_error') return;
+
+      const activeApi = api || getApi();
+      if (!activeApi) return;
+
+      const result = await checkServerHealth(state.settings.serverUrl, state.settings.apiKey);
+      if (result.ok) {
+        setServerStatus({ connected: true });
+        await performFullSync(activeApi);
+      } else if (result.errorType === 'auth') {
+        setSyncState('auth_error');
+        setServerStatus({ connected: false });
+      } else {
+        // Still offline, retry again
+        setSyncState('offline');
+        scheduleRetry(api);
+      }
+    }, delay);
+  }
 
   const handleNewNote = useCallback(() => {
     const state = useStore.getState();
@@ -301,6 +549,7 @@ export default function App() {
     saveNoteLocal(note);
     setActiveNoteId(note.id);
     addToSyncQueue('upsert', 'note', note.id, note);
+    triggerSync();
   }, []);
 
   const handleNewFolder = useCallback((): string => {
@@ -316,6 +565,7 @@ export default function App() {
     addFolder(folder);
     saveFolderLocal(folder);
     addToSyncQueue('upsert', 'folder', folder.id, folder);
+    triggerSync();
     return folder.id;
   }, []);
 
@@ -345,13 +595,17 @@ export default function App() {
           setServerStatus({ lastSync: new Date().toISOString() });
           setSyncState('synced');
         } catch (err: unknown) {
-          const axiosErr = err as { response?: { status?: number } };
-          if (axiosErr?.response?.status === 401 || axiosErr?.response?.status === 403) {
+          if (isAuthError(err)) {
             setSyncState('auth_error');
             setServerStatus({ connected: false });
           } else {
             await addToSyncQueue('upsert', 'note', id, updated);
-            setSyncState('pending');
+            if (isNetworkError(err)) {
+              setSyncState('offline');
+              scheduleRetry();
+            } else {
+              setSyncState('pending');
+            }
           }
         }
       } else {
@@ -451,96 +705,62 @@ export default function App() {
     await saveNoteLocal(dup);
     setActiveNoteId(dup.id);
     await addToSyncQueue('upsert', 'note', dup.id, dup);
+    triggerSync();
   }, [notes]);
 
+  // Trigger sync — debounced, event-driven (not polling)
+  function triggerSync() {
+    const state = useStore.getState();
+    if (state.settings.offlineOnly || state.syncState === 'auth_error') return;
+
+    const api = getApi();
+    if (!api) return;
+
+    // Small delay to batch rapid changes
+    setTimeout(async () => {
+      const currentState = useStore.getState();
+      if (currentState.syncState === 'auth_error') return;
+      await syncPendingChanges(api);
+      const remaining = await getSyncQueue();
+      const pendingRemaining = await getPendingNotes();
+      const total = remaining.length + pendingRemaining.length;
+      setPendingChanges(total);
+      if (total === 0) {
+        setSyncState('synced');
+        setServerStatus({ lastSync: new Date().toISOString() });
+      }
+    }, 500);
+  }
+
   const handleForceSave = useCallback(async () => {
-    await syncPendingChanges();
+    const api = getApi();
+    if (api) {
+      await syncPendingChanges(api);
+    }
     toast.success('Sync triggered');
   }, []);
-
-  async function syncPendingChanges() {
-    const api = getApi();
-    const state = useStore.getState();
-    if (!api || state.settings.offlineOnly || state.syncState === 'auth_error') return;
-
-    setSyncState('syncing');
-
-    // Sync pending notes (unsynced in local db)
-    const pending = await getPendingNotes();
-    for (const note of pending) {
-      try {
-        await syncNote(api, note);
-        await markNoteSynced(note.id);
-        updateNote(note.id, { synced: true });
-      } catch (err: unknown) {
-        const axiosErr = err as { response?: { status?: number } };
-        if (axiosErr?.response?.status === 401 || axiosErr?.response?.status === 403) {
-          setSyncState('auth_error');
-          setServerStatus({ connected: false });
-          return;
-        }
-        console.error(`[Sync] Failed to sync note "${note.title}" (${note.id}):`, err);
-      }
-    }
-
-    // Process sync queue items one by one
-    const queue = await getSyncQueue();
-    for (const item of queue) {
-      try {
-        if (item.entityType === 'note') {
-          if (item.action === 'delete') {
-            await deleteNoteOnServer(api, item.entityId);
-          } else {
-            const latestNotes = await loadNotesFromLocal();
-            const latestNote = latestNotes.find(n => n.id === item.entityId);
-            const payload = latestNote || (JSON.parse(item.payload) as Note);
-            await syncNote(api, payload);
-            await markNoteSynced(item.entityId);
-            updateNote(item.entityId, { synced: true });
-          }
-        } else if (item.entityType === 'folder') {
-          if (item.action === 'delete') {
-            await deleteFolderOnServer(api, item.entityId);
-          } else {
-            const payload = JSON.parse(item.payload) as Folder;
-            await syncFolder(api, payload);
-          }
-        }
-        await removeSyncQueueItem(item.id);
-      } catch (err: unknown) {
-        const axiosErr = err as { response?: { status?: number } };
-        if (axiosErr?.response?.status === 401 || axiosErr?.response?.status === 403) {
-          setSyncState('auth_error');
-          setServerStatus({ connected: false });
-          return;
-        }
-        console.error(`[Sync] Failed to process queue item ${item.id} (${item.entityType}/${item.action}):`, err);
-      }
-    }
-
-    const remaining = await getSyncQueue();
-    const pendingRemaining = await getPendingNotes();
-    const total = remaining.length + pendingRemaining.length;
-    setPendingChanges(total);
-    if (total === 0) {
-      setSyncState('synced');
-      setServerStatus({ lastSync: new Date().toISOString() });
-    } else {
-      setSyncState('pending');
-    }
-  }
 
   const handleOnboardingComplete = useCallback(async (config: { serverUrl: string; apiKey: string; offlineOnly: boolean }) => {
     const newSettings = { ...settings, ...config };
     setSettings(newSettings);
     await saveSettings(newSettings);
+    authErrorMessageRef.current = '';
+
+    if (!config.offlineOnly && config.serverUrl) {
+      // Clear old sync queue when connecting to a new server
+      await clearSyncQueue();
+    }
+
     setIsOnboarding(false);
   }, [settings]);
 
   if (isOnboarding) {
     return (
       <>
-        <Onboarding onComplete={handleOnboardingComplete} />
+        <Onboarding
+          onComplete={handleOnboardingComplete}
+          authErrorMessage={authErrorMessageRef.current || undefined}
+        />
         <Toaster position="bottom-right" />
       </>
     );
@@ -586,7 +806,7 @@ export default function App() {
             className="flex items-center justify-between px-4 py-2 text-sm"
             style={{ backgroundColor: '#fef2f2', color: '#991b1b', borderBottom: '1px solid #fecaca' }}
           >
-            <span>Sync failed: Invalid API Key — go to Settings to fix</span>
+            <span>Sync failed: Invalid API Key \u2014 go to Settings to fix</span>
             <button
               onClick={() => { setShowSettings(true); useStore.getState().setSettingsTab('server'); }}
               className="px-3 py-1 rounded-lg text-xs font-semibold"

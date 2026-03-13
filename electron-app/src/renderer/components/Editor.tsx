@@ -14,6 +14,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { common, createLowlight } from 'lowlight';
 import { useStore } from '../store/useStore';
 import { Note, Folder } from '../types';
+import { getApi, uploadImageToServer, fetchImageFromServer, getCachedImageUrl } from '../utils/sync';
 
 const lowlight = createLowlight(common);
 
@@ -22,6 +23,129 @@ const lowlight = createLowlight(common);
 ───────────────────────────────────────────────── */
 function ImageNodeView({ node, selected, deleteNode }: NodeViewProps) {
   const [hovered, setHovered] = useState(false);
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
+  const [imgLoading, setImgLoading] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  const src = (node.attrs.src as string) || '';
+  const isShukiImg = src.startsWith('shuki-img://');
+
+  useEffect(() => {
+    if (!isShukiImg) {
+      setResolvedSrc(src);
+      return;
+    }
+
+    const filename = src.replace('shuki-img://', '');
+
+    // Check in-memory cache first
+    const cached = getCachedImageUrl(filename);
+    if (cached) {
+      setResolvedSrc(cached);
+      return;
+    }
+
+    // Fetch from server
+    const { serverUrl, apiKey } = useStore.getState().settings;
+    if (!serverUrl || !apiKey) {
+      setImgError(true);
+      return;
+    }
+
+    setImgLoading(true);
+    setImgError(false);
+    fetchImageFromServer(serverUrl, apiKey, filename)
+      .then((url) => {
+        setResolvedSrc(url);
+        setImgLoading(false);
+      })
+      .catch(() => {
+        setImgError(true);
+        setImgLoading(false);
+      });
+  }, [src, isShukiImg]);
+
+  const handleRetry = () => {
+    if (!isShukiImg) return;
+    const filename = src.replace('shuki-img://', '');
+    const { serverUrl, apiKey } = useStore.getState().settings;
+    if (!serverUrl || !apiKey) return;
+
+    setImgLoading(true);
+    setImgError(false);
+    fetchImageFromServer(serverUrl, apiKey, filename)
+      .then((url) => {
+        setResolvedSrc(url);
+        setImgLoading(false);
+      })
+      .catch(() => {
+        setImgError(true);
+        setImgLoading(false);
+      });
+  };
+
+  if (imgLoading) {
+    return (
+      <NodeViewWrapper as="span" style={{ display: 'inline-block' }}>
+        <div style={{
+          padding: '16px 24px',
+          borderRadius: 10,
+          backgroundColor: 'var(--bg-hover)',
+          border: '1px solid var(--border)',
+          color: 'var(--text-muted)',
+          fontSize: '0.82rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          <span style={{
+            width: 14, height: 14,
+            border: '2px solid var(--border)',
+            borderTopColor: 'var(--accent)',
+            borderRadius: '50%',
+            display: 'inline-block',
+            animation: 'spin 0.7s linear infinite',
+          }} />
+          Loading image...
+        </div>
+      </NodeViewWrapper>
+    );
+  }
+
+  if (imgError) {
+    return (
+      <NodeViewWrapper as="span" style={{ display: 'inline-block' }}>
+        <div style={{
+          padding: '16px 24px',
+          borderRadius: 10,
+          backgroundColor: 'rgba(248,113,113,0.08)',
+          border: '1px solid rgba(248,113,113,0.2)',
+          color: 'var(--text-secondary)',
+          fontSize: '0.82rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          <span>Image unavailable</span>
+          <button
+            onClick={handleRetry}
+            style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              fontSize: '0.75rem',
+              backgroundColor: 'var(--accent)',
+              color: '#fff',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </NodeViewWrapper>
+    );
+  }
+
   return (
     <NodeViewWrapper as="span" className="tiptap-image-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
       <span
@@ -30,7 +154,7 @@ function ImageNodeView({ node, selected, deleteNode }: NodeViewProps) {
         style={{ position: 'relative', display: 'inline-block' }}
       >
         <img
-          src={node.attrs.src}
+          src={resolvedSrc || src}
           alt={node.attrs.alt || ''}
           title={node.attrs.title || undefined}
           style={{
@@ -274,17 +398,33 @@ export default function Editor({ note, onChange, folders }: Props) {
 
   async function handleImageFiles(files: File[]) {
     for (const file of files) {
+      const arrayBuffer = await file.arrayBuffer();
+      const ext = file.name.split('.').pop() || 'png';
+      const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      // Save locally for offline access
       if (window.electronAPI) {
-        const arrayBuffer = await file.arrayBuffer();
-        const ext = file.name.split('.').pop() || 'png';
-        const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const savedPath = await window.electronAPI.images.save(arrayBuffer, filename);
-        const imgSrc = `shuki://${encodeURIComponent(savedPath)}`;
-        if (editor && editorMode === 'rich') editor.chain().focus().setImage({ src: imgSrc, alt: file.name }).run();
-      } else {
-        const base64 = await fileToBase64(file);
-        if (editor && editorMode === 'rich') editor.chain().focus().setImage({ src: base64, alt: file.name }).run();
+        await window.electronAPI.images.save(arrayBuffer, filename);
       }
+
+      // Try to upload to server
+      const api = getApi();
+      const state = useStore.getState();
+      if (api && !state.settings.offlineOnly && state.syncState !== 'auth_error') {
+        try {
+          const result = await uploadImageToServer(api, arrayBuffer, filename);
+          // Use shuki-img:// protocol with server filename
+          const imgSrc = `shuki-img://${result.filename}`;
+          if (editor && editorMode === 'rich') editor.chain().focus().setImage({ src: imgSrc, alt: file.name }).run();
+          continue;
+        } catch {
+          // Fall through to local-only path
+        }
+      }
+
+      // Offline fallback: use shuki-img:// with local filename, will be uploaded on sync
+      const imgSrc = `shuki-img://${filename}`;
+      if (editor && editorMode === 'rich') editor.chain().focus().setImage({ src: imgSrc, alt: file.name }).run();
     }
   }
 

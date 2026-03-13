@@ -3,14 +3,16 @@ import { checkServerHealth } from '../utils/sync';
 
 interface Props {
   onComplete: (config: { serverUrl: string; apiKey: string; offlineOnly: boolean }) => void;
+  authErrorMessage?: string;
 }
 
-export default function Onboarding({ onComplete }: Props) {
+export default function Onboarding({ onComplete, authErrorMessage }: Props) {
   const [serverUrl, setServerUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [status, setStatus] = useState<'idle' | 'checking' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [startupAuthError, setStartupAuthError] = useState(false);
 
   const handleConnect = async () => {
     const url = (serverUrl || 'http://localhost:3000').replace(/\/+$/, '');
@@ -33,16 +35,20 @@ export default function Onboarding({ onComplete }: Props) {
 
     if (result.ok) {
       setStatus('success');
+      setStartupAuthError(false);
       setTimeout(() => onComplete({ serverUrl: url, apiKey, offlineOnly: false }), 900);
     } else if (result.errorType === 'auth') {
       setStatus('error');
-      setErrorMsg('Invalid API key — check your key in the Docker logs');
+      setErrorMsg('Invalid API key — please check your Docker logs');
     } else if (result.errorType === 'network') {
       setStatus('error');
-      setErrorMsg('Server not reachable — check the URL');
+      setErrorMsg('Cannot reach server — check the URL and your network');
+    } else if (result.errorType === 'server') {
+      setStatus('error');
+      setErrorMsg('Server error — try again or check server logs');
     } else {
       setStatus('error');
-      setErrorMsg('Could not connect. Check the URL and make sure the server is running.');
+      setErrorMsg('Server error — try again or check server logs');
     }
   };
 
@@ -216,6 +222,22 @@ export default function Onboarding({ onComplete }: Props) {
                 Found in your Docker logs on first start.
               </p>
             </div>
+
+            {/* Startup auth error banner */}
+            {authErrorMessage && status !== 'success' && (
+              <div style={{
+                padding: '9px 13px',
+                borderRadius: 8,
+                fontSize: '0.8rem',
+                fontFamily: 'var(--font-display)',
+                fontStyle: 'italic',
+                backgroundColor: 'rgba(248,113,113,0.09)',
+                color: '#C05050',
+                border: '1px solid rgba(248,113,113,0.22)',
+              }}>
+                {authErrorMessage}
+              </div>
+            )}
 
             {/* Status messages */}
             {status === 'error' && (

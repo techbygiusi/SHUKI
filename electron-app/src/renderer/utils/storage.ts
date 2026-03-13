@@ -269,6 +269,14 @@ export async function removeSyncQueueItem(id: number): Promise<void> {
   }
 }
 
+export async function clearSyncQueue(): Promise<void> {
+  if (isElectron()) {
+    await api!.db.clearSyncQueue();
+  } else {
+    lsSet(KEYS.syncQueue, []);
+  }
+}
+
 // --- Shortcuts ---
 export async function loadShortcuts(): Promise<Record<string, string> | null> {
   if (isElectron()) {

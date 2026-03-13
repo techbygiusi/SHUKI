@@ -96,6 +96,11 @@ export default function Settings({ onClose }: Props) {
 
   const handleServerUpdate = async () => {
     const url = serverUrl.replace(/\/+$/, '');
+    if (!apiKey.trim()) {
+      setServerUpdateStatus('error');
+      setServerUpdateMsg('Please enter your API key');
+      return;
+    }
     setServerUpdateStatus('checking');
     setServerUpdateMsg('');
     const result = await checkServerHealth(url, apiKey);
@@ -108,13 +113,16 @@ export default function Settings({ onClose }: Props) {
       toast.success('Server connection updated');
     } else if (result.errorType === 'auth') {
       setServerUpdateStatus('error');
-      setServerUpdateMsg('Invalid API key — check your server logs');
+      setServerUpdateMsg('Invalid API key — please check your Docker logs');
     } else if (result.errorType === 'network') {
       setServerUpdateStatus('error');
-      setServerUpdateMsg('Server not reachable — check the URL');
+      setServerUpdateMsg('Cannot reach server — check the URL and your network');
+    } else if (result.errorType === 'server') {
+      setServerUpdateStatus('error');
+      setServerUpdateMsg('Server error — try again or check server logs');
     } else {
       setServerUpdateStatus('error');
-      setServerUpdateMsg('Could not connect to server');
+      setServerUpdateMsg('Server error — try again or check server logs');
     }
   };
 

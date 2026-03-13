@@ -5,6 +5,9 @@ import { Note, Folder } from '../types';
 let apiClient: AxiosInstance | null = null;
 let socket: Socket | null = null;
 
+// Image cache: filename -> blob URL
+const imageCache = new Map<string, string>();
+
 export function initApi(serverUrl: string, apiKey: string): AxiosInstance {
   apiClient = axios.create({
     baseURL: serverUrl,
@@ -16,6 +19,10 @@ export function initApi(serverUrl: string, apiKey: string): AxiosInstance {
 
 export function getApi(): AxiosInstance | null {
   return apiClient;
+}
+
+export function clearApi(): void {
+  apiClient = null;
 }
 
 export function initSocket(
@@ -56,27 +63,55 @@ export function disconnectSocket(): void {
   }
 }
 
-export async function checkServerHealth(serverUrl: string, apiKey: string): Promise<{
+export type HealthErrorType = 'auth' | 'network' | 'server' | 'unknown';
+
+export interface HealthResult {
   ok: boolean;
   data?: { status: string; clients: number; storage: { free: number; total: number; path: string }; version: string };
-  errorType?: 'network' | 'auth' | 'unknown';
-}> {
+  errorType?: HealthErrorType;
+}
+
+/**
+ * Check server reachability AND validate API key.
+ * First hits /api/health (no auth) to verify server is up,
+ * then hits /api/validate (auth required) to verify the API key.
+ */
+export async function checkServerHealth(serverUrl: string, apiKey: string): Promise<HealthResult> {
   try {
-    const res = await axios.get(`${serverUrl}/api/health`, {
-      timeout: 10000,
-      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-    });
-    return { ok: true, data: res.data };
+    // Check basic reachability
+    const healthRes = await axios.get(`${serverUrl}/api/health`, { timeout: 10000 });
+
+    // Validate API key against authenticated endpoint
+    if (apiKey) {
+      try {
+        await axios.get(`${serverUrl}/api/validate`, {
+          timeout: 10000,
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+      } catch (authErr: unknown) {
+        if (axios.isAxiosError(authErr)) {
+          if (authErr.response?.status === 401 || authErr.response?.status === 403) {
+            return { ok: false, errorType: 'auth' };
+          }
+          if (authErr.response && authErr.response.status >= 500) {
+            return { ok: false, errorType: 'server' };
+          }
+        }
+        return { ok: false, errorType: 'unknown' };
+      }
+    }
+
+    return { ok: true, data: healthRes.data };
   } catch (err: unknown) {
     if (axios.isAxiosError(err)) {
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        return { ok: false, errorType: 'auth' };
-      }
       if (!err.response) {
         return { ok: false, errorType: 'network' };
       }
+      if (err.response.status >= 500) {
+        return { ok: false, errorType: 'server' };
+      }
     }
-    return { ok: false, errorType: 'unknown' };
+    return { ok: false, errorType: 'network' };
   }
 }
 
@@ -150,4 +185,80 @@ export async function createFolderOnServer(api: AxiosInstance, folder: Folder): 
 
 export async function deleteFolderOnServer(api: AxiosInstance, id: string): Promise<void> {
   await api.delete(`/api/folders/${id}`);
+}
+
+// --- Image sync ---
+
+/**
+ * Upload an image to the server.
+ * Returns { url, filename } from the server.
+ */
+export async function uploadImageToServer(
+  api: AxiosInstance,
+  imageData: ArrayBuffer | Blob,
+  filename: string
+): Promise<{ url: string; filename: string }> {
+  const formData = new FormData();
+  const blob = imageData instanceof Blob ? imageData : new Blob([imageData]);
+  formData.append('image', blob, filename);
+
+  const res = await api.post('/api/images', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 30000,
+  });
+  return res.data;
+}
+
+/**
+ * Fetch an image from the server and return a blob URL.
+ * Results are cached in memory.
+ */
+export async function fetchImageFromServer(
+  serverUrl: string,
+  apiKey: string,
+  filename: string
+): Promise<string> {
+  const cached = imageCache.get(filename);
+  if (cached) return cached;
+
+  const res = await axios.get(`${serverUrl}/api/images/${filename}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    responseType: 'blob',
+    timeout: 30000,
+  });
+
+  const blobUrl = URL.createObjectURL(res.data as Blob);
+  imageCache.set(filename, blobUrl);
+  return blobUrl;
+}
+
+export function getCachedImageUrl(filename: string): string | null {
+  return imageCache.get(filename) || null;
+}
+
+export function clearImageCache(): void {
+  for (const url of imageCache.values()) {
+    URL.revokeObjectURL(url);
+  }
+  imageCache.clear();
+}
+
+/**
+ * Check if an axios error is an auth error (401/403).
+ */
+export function isAuthError(err: unknown): boolean {
+  if (axios.isAxiosError(err)) {
+    return err.response?.status === 401 || err.response?.status === 403;
+  }
+  return false;
+}
+
+/**
+ * Check if an axios error is a network error (no response).
+ */
+export function isNetworkError(err: unknown): boolean {
+  if (axios.isAxiosError(err)) {
+    return !err.response;
+  }
+  return false;
 }
