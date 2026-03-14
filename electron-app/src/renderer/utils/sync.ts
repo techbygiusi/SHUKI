@@ -243,6 +243,21 @@ export function clearImageCache(): void {
   imageCache.clear();
 }
 
+export interface ServerImageMeta {
+  filename: string;
+  size: number;
+  mimeType: string;
+  uploadedAt: string;
+}
+
+/**
+ * Fetch the list of all images from the server.
+ */
+export async function fetchImageList(api: AxiosInstance): Promise<ServerImageMeta[]> {
+  const res = await api.get('/api/images');
+  return res.data as ServerImageMeta[];
+}
+
 /**
  * Check if an axios error is an auth error (401/403).
  */

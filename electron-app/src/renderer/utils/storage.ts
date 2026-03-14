@@ -354,3 +354,28 @@ export async function resetAllSettings(): Promise<void> {
   localStorage.removeItem(KEYS.ui);
   localStorage.removeItem(KEYS.server);
 }
+
+// --- Clear all local data (notes, images, settings, cache) ---
+export async function clearAllLocalData(): Promise<void> {
+  // Clear localStorage
+  for (const key of Object.values(KEYS)) {
+    localStorage.removeItem(key);
+  }
+
+  if (isElectron()) {
+    // Clear electron-store data
+    await api!.store.delete('settings');
+    await api!.store.delete('shortcuts');
+    await api!.store.delete('ui');
+    await api!.store.delete('windowBounds');
+
+    // Clear local database
+    await api!.db.clearCache();
+
+    // Clear sync queue
+    await api!.db.clearSyncQueue();
+
+    // Clear image cache directory
+    await api!.images.clearCache();
+  }
+}

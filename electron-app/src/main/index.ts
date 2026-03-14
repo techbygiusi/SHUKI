@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeTheme, protocol } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeTheme, protocol, net } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import Store from 'electron-store';
@@ -68,11 +68,87 @@ function getImagesPath(): string {
   return imagesDir;
 }
 
+function getImageCachePath(): string {
+  const cacheDir = path.join(app.getPath('userData'), 'image-cache');
+  if (!fs.existsSync(cacheDir)) {
+    fs.mkdirSync(cacheDir, { recursive: true });
+  }
+  return cacheDir;
+}
+
+function getMimeType(filename: string): string {
+  const ext = path.extname(filename).toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+    '.bmp': 'image/bmp',
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
+}
+
 app.whenReady().then(async () => {
   protocol.registerFileProtocol('shuki', (request, callback) => {
     const url = request.url.replace('shuki://', '');
     const decodedPath = decodeURIComponent(url);
     callback({ path: decodedPath });
+  });
+
+  // shuki-img:// protocol handler — resolves images from local cache, local images dir, or fetches from server
+  protocol.registerBufferProtocol('shuki-img', async (request, callback) => {
+    const filename = path.basename(request.url.replace('shuki-img://', ''));
+    const mimeType = getMimeType(filename);
+
+    // 1. Check local images directory first
+    const localPath = path.join(getImagesPath(), filename);
+    if (fs.existsSync(localPath)) {
+      const data = fs.readFileSync(localPath);
+      callback({ mimeType, data });
+      return;
+    }
+
+    // 2. Check image cache
+    const cachePath = path.join(getImageCachePath(), filename);
+    if (fs.existsSync(cachePath)) {
+      const data = fs.readFileSync(cachePath);
+      callback({ mimeType, data });
+      return;
+    }
+
+    // 3. Fetch from server with auth header
+    const settings = store.get('settings') as Record<string, unknown> | undefined;
+    const serverUrl = settings?.serverUrl as string | undefined;
+    const apiKey = settings?.apiKey as string | undefined;
+
+    if (!serverUrl || !apiKey) {
+      callback({ mimeType: 'text/plain', data: Buffer.from('Image not available') });
+      return;
+    }
+
+    try {
+      const url = `${serverUrl}/api/images/${encodeURIComponent(filename)}`;
+      const response = await net.fetch(url, {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+
+      if (!response.ok) {
+        callback({ mimeType: 'text/plain', data: Buffer.from('Image fetch failed') });
+        return;
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const data = Buffer.from(arrayBuffer);
+
+      // Cache the image for future use
+      fs.writeFileSync(cachePath, data);
+
+      callback({ mimeType, data });
+    } catch {
+      callback({ mimeType: 'text/plain', data: Buffer.from('Image fetch failed') });
+    }
   });
 
   localDb = await initLocalDb(app.getPath('userData'));
@@ -156,6 +232,24 @@ app.whenReady().then(async () => {
     const filePath = path.join(getImagesPath(), path.basename(filename));
     if (fs.existsSync(filePath)) return fs.readFileSync(filePath);
     return null;
+  });
+
+  // Image cache
+  ipcMain.handle('images:getCachePath', () => getImageCachePath());
+  ipcMain.handle('images:clearCache', () => {
+    const cacheDir = getImageCachePath();
+    if (fs.existsSync(cacheDir)) {
+      const files = fs.readdirSync(cacheDir);
+      for (const file of files) {
+        fs.unlinkSync(path.join(cacheDir, file));
+      }
+    }
+    return true;
+  });
+  ipcMain.handle('images:cacheImage', (_e, buffer: ArrayBuffer, filename: string) => {
+    const cachePath = path.join(getImageCachePath(), path.basename(filename));
+    fs.writeFileSync(cachePath, Buffer.from(buffer));
+    return cachePath;
   });
 
   app.on('activate', () => {

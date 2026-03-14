@@ -16,10 +16,27 @@ interface GalleryImage {
   folderName: string | null;
 }
 
+/** Extract shuki-img:// filenames from TipTap JSON content */
+function extractImagesFromJson(node: Record<string, unknown>): string[] {
+  const results: string[] = [];
+  if (node.type === 'image') {
+    const src = (node.attrs as Record<string, unknown>)?.src as string | undefined;
+    if (src && src.startsWith('shuki-img://')) {
+      results.push(src.replace('shuki-img://', ''));
+    }
+  }
+  const content = node.content as Record<string, unknown>[] | undefined;
+  if (content) {
+    for (const child of content) {
+      results.push(...extractImagesFromJson(child));
+    }
+  }
+  return results;
+}
+
 export default function Gallery({ onClose, onOpenNote }: Props) {
   const { notes, folders } = useStore();
   const [images, setImages] = useState<GalleryImage[]>([]);
-  const [imagesBasePath, setImagesBasePath] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<GalleryImage | null>(null);
@@ -31,19 +48,75 @@ export default function Gallery({ onClose, onOpenNote }: Props) {
       setLoading(true);
       setError(null);
       const basePath = await getImagesPath();
-      setImagesBasePath(basePath);
-      const filenames = await listLocalImages();
 
       const galleryImages: GalleryImage[] = [];
+      const seenFilenames = new Set<string>();
 
-      for (const filename of filenames) {
+      // Extract images from TipTap JSON content (shuki-img:// references)
+      for (const note of notes) {
+        const content = note.content;
+        if (!content) continue;
+
+        let imageFilenames: string[] = [];
+
+        // Try parsing as TipTap JSON
+        const trimmed = content.trimStart();
+        if (trimmed.startsWith('{"type":') || trimmed.startsWith('{"type" :')) {
+          try {
+            const json = JSON.parse(content) as Record<string, unknown>;
+            imageFilenames = extractImagesFromJson(json);
+          } catch { /* not valid JSON */ }
+        }
+
+        // Also check for shuki-img:// in raw content (covers markdown mode and plain text references)
+        const shukiImgRegex = /shuki-img:\/\/([^\s"'<>)]+)/g;
+        let match;
+        while ((match = shukiImgRegex.exec(content)) !== null) {
+          const fn = match[1];
+          if (!imageFilenames.includes(fn)) imageFilenames.push(fn);
+        }
+
+        // Also check for markdown image syntax
+        const mdImgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+        while ((match = mdImgRegex.exec(content)) !== null) {
+          const src = match[2];
+          if (src.startsWith('shuki-img://')) {
+            const fn = src.replace('shuki-img://', '');
+            if (!imageFilenames.includes(fn)) imageFilenames.push(fn);
+          }
+        }
+
+        let folderName: string | null = null;
+        if (note.folderId) {
+          const folder = folders.find((f) => f.id === note.folderId);
+          folderName = folder?.name || null;
+        }
+
+        for (const filename of imageFilenames) {
+          if (seenFilenames.has(filename)) continue;
+          seenFilenames.add(filename);
+          galleryImages.push({
+            filename,
+            fullPath: `shuki-img://${filename}`,
+            noteId: note.id,
+            noteTitle: note.title,
+            folderName,
+          });
+        }
+      }
+
+      // Also include local images that may be referenced by filename in content
+      const localFilenames = await listLocalImages();
+      for (const filename of localFilenames) {
+        if (seenFilenames.has(filename)) continue;
         const fullPath = `${basePath}/${filename}`;
+
         let noteId: string | null = null;
         let noteTitle = '';
         let folderName: string | null = null;
 
         for (const note of notes) {
-          if (note.content.includes(filename) || note.content.includes(encodeURIComponent(fullPath))) {
+          if (note.content.includes(filename)) {
             noteId = note.id;
             noteTitle = note.title;
             if (note.folderId) {
@@ -54,34 +127,14 @@ export default function Gallery({ onClose, onOpenNote }: Props) {
           }
         }
 
-        galleryImages.push({ filename, fullPath, noteId, noteTitle, folderName });
-      }
-
-      const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
-      for (const note of notes) {
-        let match;
-        while ((match = imgRegex.exec(note.content)) !== null) {
-          const src = match[2];
-          if (galleryImages.some((g) => src.includes(g.filename))) continue;
-          if (src.startsWith('data:') || src.startsWith('http')) {
-            let folderName: string | null = null;
-            if (note.folderId) {
-              const folder = folders.find((f) => f.id === note.folderId);
-              folderName = folder?.name || null;
-            }
-            galleryImages.push({
-              filename: match[1] || 'image',
-              fullPath: src,
-              noteId: note.id,
-              noteTitle: note.title,
-              folderName,
-            });
-          }
+        if (noteId) {
+          seenFilenames.add(filename);
+          galleryImages.push({ filename, fullPath, noteId, noteTitle, folderName });
         }
       }
 
-      setImages(galleryImages.filter((img) => img.noteId !== null));
-    } catch (err) {
+      setImages(galleryImages);
+    } catch {
       setError('Could not load images. Make sure the app has access to the images directory.');
       setImages([]);
     } finally {
@@ -90,7 +143,7 @@ export default function Gallery({ onClose, onOpenNote }: Props) {
   }
 
   const imgSrc = (img: GalleryImage) =>
-    img.fullPath.startsWith('data:') || img.fullPath.startsWith('http')
+    img.fullPath.startsWith('shuki-img://') || img.fullPath.startsWith('data:') || img.fullPath.startsWith('http')
       ? img.fullPath
       : `shuki://${encodeURIComponent(img.fullPath)}`;
 

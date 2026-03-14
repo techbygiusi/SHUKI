@@ -110,8 +110,13 @@ function ImageNodeView({ node, selected, deleteNode }: NodeViewProps) {
 
   const src = (node.attrs.src as string) || '';
   const isShukiImg = src.startsWith('shuki-img://');
+  const isUploading = src.startsWith('uploading-');
 
   useEffect(() => {
+    if (isUploading) {
+      setImgLoading(true);
+      return;
+    }
     if (!isShukiImg) {
       setResolvedSrc(src);
       setImgLoading(false);
@@ -1096,7 +1101,24 @@ export default function Editor({ note, onChange, folders }: Props) {
           )}
 
           {editorMode === 'rich' ? (
-            <div className="relative">
+            <div
+              className="relative"
+              onDragOver={(e) => {
+                if (e.dataTransfer?.types?.includes('Files')) {
+                  e.preventDefault();
+                  setIsDragOver(true);
+                }
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={() => setIsDragOver(false)}
+              style={{
+                outline: isDragOver ? '2px dashed var(--accent)' : 'none',
+                outlineOffset: -2,
+                borderRadius: 8,
+                transition: 'outline 0.15s',
+                backgroundColor: isDragOver ? 'rgba(193,127,58,0.04)' : 'transparent',
+              }}
+            >
               <EditorContent editor={editor} />
 
               {showSlashMenu && slashPos && filteredSlashCommands.length > 0 && (

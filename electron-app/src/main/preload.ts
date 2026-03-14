@@ -32,5 +32,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     list: () => ipcRenderer.invoke('images:list'),
     delete: (filename: string) => ipcRenderer.invoke('images:delete', filename),
     read: (filename: string) => ipcRenderer.invoke('images:read', filename),
+    getCachePath: () => ipcRenderer.invoke('images:getCachePath'),
+    clearCache: () => ipcRenderer.invoke('images:clearCache'),
+    cacheImage: (buffer: ArrayBuffer, filename: string) => ipcRenderer.invoke('images:cacheImage', buffer, filename),
   },
 });
