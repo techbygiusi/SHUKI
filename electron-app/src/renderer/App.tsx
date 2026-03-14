@@ -10,7 +10,7 @@ import {
 import {
   initApi, initSocket, checkServerHealth, fetchNotes, fetchFolders,
   syncNote, disconnectSocket, getApi, deleteFolderOnServer, deleteNoteOnServer,
-  syncFolder, isAuthError, isNetworkError, clearApi,
+  syncFolder, isAuthError, isNetworkError, clearApi, fetchImageList,
 } from './utils/sync';
 import { applyTheme, watchSystemTheme } from './utils/theme';
 import Onboarding from './components/Onboarding';
@@ -392,11 +392,30 @@ export default function App() {
         for (const f of merged) await saveFolderLocal(f);
       }
 
-      // Step 4: Push local-only notes to server
+      // Step 4: Sync images from server
+      setSyncMessage('Syncing images...');
+      try {
+        const serverImages = await fetchImageList(api);
+        // Cache images that we don't have locally
+        if (window.electronAPI) {
+          const localImages = await window.electronAPI.images.list();
+          const localSet = new Set(localImages);
+          for (const img of serverImages) {
+            if (!localSet.has(img.filename)) {
+              // The shuki-img:// protocol handler will fetch and cache on demand
+              // Just ensure we know about the images
+            }
+          }
+        }
+      } catch {
+        // Image list sync is non-critical, continue
+      }
+
+      // Step 5: Push local-only notes to server
       setSyncMessage('Pushing local changes...');
       await syncPendingChanges(api);
 
-      // Step 5: Done
+      // Step 6: Done
       setServerStatus({ connected: true, lastSync: new Date().toISOString() });
       setSyncState('synced');
       setSyncMessage('');

@@ -113,6 +113,9 @@ declare global {
         list: () => Promise<string[]>;
         delete: (filename: string) => Promise<boolean>;
         read: (filename: string) => Promise<ArrayBuffer | null>;
+        getCachePath: () => Promise<string>;
+        clearCache: () => Promise<boolean>;
+        cacheImage: (buffer: ArrayBuffer, filename: string) => Promise<string>;
       };
     };
   }

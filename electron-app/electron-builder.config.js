@@ -36,6 +36,7 @@ module.exports = {
     shortcutName: 'SHUKI',
     installerSidebar: 'assets/installer-sidebar.bmp',
     uninstallerSidebar: 'assets/installer-sidebar.bmp',
+    include: 'assets/installer.nsh',
   },
   linux: {
     target: ['AppImage', 'deb'],

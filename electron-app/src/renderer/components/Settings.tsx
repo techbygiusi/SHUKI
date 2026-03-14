@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
-import { saveSettings, clearLocalCache, saveShortcuts, loadShortcuts, resetAllSettings } from '../utils/storage';
+import { saveSettings, clearLocalCache, saveShortcuts, loadShortcuts, resetAllSettings, clearAllLocalData } from '../utils/storage';
 import { checkServerHealth } from '../utils/sync';
 import { applyTheme } from '../utils/theme';
 import { ThemeMode, ShortcutConfig } from '../types';
@@ -495,16 +495,40 @@ export default function Settings({ onClose }: Props) {
             </Card>
 
             <Card>
-              <SectionHeading>Reset</SectionHeading>
-              <p style={{ fontSize: '0.82rem', marginBottom: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Reset all settings, shortcuts, and UI preferences to their defaults. This will reload the app.
-              </p>
-              <WarmButton
-                variant="danger"
-                onClick={async () => { await resetAllSettings(); window.location.reload(); }}
-              >
-                Reset all settings to defaults
-              </WarmButton>
+              <SectionHeading>Danger Zone</SectionHeading>
+
+              <div style={{ marginBottom: 18 }}>
+                <p style={{ fontSize: '0.82rem', marginBottom: 10, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  Clear all locally cached notes, images, and settings. Your server data will not be affected.
+                </p>
+                <WarmButton
+                  variant="danger"
+                  onClick={async () => {
+                    if (!window.confirm(
+                      'This will delete all locally cached notes, images, and settings.\n\nYour server data will not be affected. Continue?'
+                    )) return;
+                    await clearAllLocalData();
+                    toast.success('All local data cleared');
+                    // Redirect to connect screen
+                    useStore.getState().setIsOnboarding(true);
+                    window.location.reload();
+                  }}
+                >
+                  Clear all local data
+                </WarmButton>
+              </div>
+
+              <div style={{ paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <p style={{ fontSize: '0.82rem', marginBottom: 10, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  Reset all settings, shortcuts, and UI preferences to their defaults. This will reload the app.
+                </p>
+                <WarmButton
+                  variant="danger"
+                  onClick={async () => { await resetAllSettings(); window.location.reload(); }}
+                >
+                  Reset all settings to defaults
+                </WarmButton>
+              </div>
             </Card>
           </>
         )}

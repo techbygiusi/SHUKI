@@ -29,8 +29,13 @@ function ImageNodeView({ node, selected, deleteNode }: NodeViewProps) {
 
   const src = (node.attrs.src as string) || '';
   const isShukiImg = src.startsWith('shuki-img://');
+  const isUploading = src.startsWith('uploading-');
 
   useEffect(() => {
+    if (isUploading) {
+      setImgLoading(true);
+      return;
+    }
     if (!isShukiImg) {
       setResolvedSrc(src);
       return;
@@ -126,7 +131,7 @@ function ImageNodeView({ node, selected, deleteNode }: NodeViewProps) {
           alignItems: 'center',
           gap: 8,
         }}>
-          <span>Image unavailable</span>
+          <span>Image upload failed — retry</span>
           <button
             onClick={handleRetry}
             style={{
@@ -284,6 +289,8 @@ export default function Editor({ note, onChange, folders }: Props) {
   const [linkInputValue, setLinkInputValue]     = useState('');
   const [linkIsEdit, setLinkIsEdit]             = useState(false);
 
+  const [isDragOver, setIsDragOver]             = useState(false);
+
   const colorPickerRef  = useRef<HTMLDivElement>(null);
   const fileInputRef    = useRef<HTMLInputElement>(null);
   const linkPopoverRef  = useRef<HTMLDivElement>(null);
@@ -402,6 +409,12 @@ export default function Editor({ note, onChange, folders }: Props) {
       const ext = file.name.split('.').pop() || 'png';
       const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
+      // Insert a placeholder while uploading
+      const placeholderId = `uploading-${filename}`;
+      if (editor && editorMode === 'rich') {
+        editor.chain().focus().setImage({ src: placeholderId, alt: 'Uploading...' }).run();
+      }
+
       // Save locally for offline access
       if (window.electronAPI) {
         await window.electronAPI.images.save(arrayBuffer, filename);
@@ -410,21 +423,39 @@ export default function Editor({ note, onChange, folders }: Props) {
       // Try to upload to server
       const api = getApi();
       const state = useStore.getState();
+      let finalFilename = filename;
       if (api && !state.settings.offlineOnly && state.syncState !== 'auth_error') {
         try {
           const result = await uploadImageToServer(api, arrayBuffer, filename);
-          // Use shuki-img:// protocol with server filename
-          const imgSrc = `shuki-img://${result.filename}`;
-          if (editor && editorMode === 'rich') editor.chain().focus().setImage({ src: imgSrc, alt: file.name }).run();
-          continue;
+          finalFilename = result.filename;
         } catch {
           // Fall through to local-only path
         }
       }
 
-      // Offline fallback: use shuki-img:// with local filename, will be uploaded on sync
-      const imgSrc = `shuki-img://${filename}`;
-      if (editor && editorMode === 'rich') editor.chain().focus().setImage({ src: imgSrc, alt: file.name }).run();
+      // Replace placeholder with actual image
+      const imgSrc = `shuki-img://${finalFilename}`;
+      if (editor && editorMode === 'rich') {
+        // Find and replace the placeholder node
+        const { doc } = editor.state;
+        let placeholderPos = -1;
+        doc.descendants((node, pos) => {
+          if (node.type.name === 'image' && node.attrs.src === placeholderId) {
+            placeholderPos = pos;
+            return false;
+          }
+          return true;
+        });
+        if (placeholderPos >= 0) {
+          const node = editor.state.schema.nodes.image.create({ src: imgSrc, alt: file.name });
+          editor.view.dispatch(
+            editor.state.tr.replaceWith(placeholderPos, placeholderPos + 1, node)
+          );
+        } else {
+          // Placeholder not found (edge case), just insert
+          editor.chain().focus().setImage({ src: imgSrc, alt: file.name }).run();
+        }
+      }
     }
   }
 
@@ -750,7 +781,24 @@ export default function Editor({ note, onChange, folders }: Props) {
 
           {/* ── Editor body ── */}
           {editorMode === 'rich' ? (
-            <div className="relative">
+            <div
+              className="relative"
+              onDragOver={(e) => {
+                if (e.dataTransfer?.types?.includes('Files')) {
+                  e.preventDefault();
+                  setIsDragOver(true);
+                }
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={() => setIsDragOver(false)}
+              style={{
+                outline: isDragOver ? '2px dashed var(--accent)' : 'none',
+                outlineOffset: -2,
+                borderRadius: 8,
+                transition: 'outline 0.15s',
+                backgroundColor: isDragOver ? 'rgba(193,127,58,0.04)' : 'transparent',
+              }}
+            >
               <EditorContent editor={editor} />
               {/* Slash menu */}
               {showSlashMenu && slashPos && filteredSlashCommands.length > 0 && (
